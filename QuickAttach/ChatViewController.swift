@@ -401,6 +401,13 @@ final class ChatViewController: UIViewController {
         // does not have to wait out a tap: 0.15s reads as immediate.
         longPress.minimumPressDuration = 0.15
         inputPanel.attachButton.addGestureRecognizer(longPress)
+        // Warm the camera on touch-down: the session has the press duration
+        // plus the fan's flight to spin up, so the tile is live on arrival.
+        inputPanel.attachButton.addTarget(self, action: #selector(attachTouchDown), for: .touchDown)
+    }
+
+    @objc private func attachTouchDown() {
+        CameraStripItemView.shared.warmUp()
     }
 
     @objc private func handleAttachLongPress(_ gesture: UILongPressGestureRecognizer) {
@@ -520,11 +527,11 @@ final class ChatViewController: UIViewController {
             cell.layer.add(horizontal, forKey: "sendTransitionX")
         }
 
-        let hadPhoto = image != nil
+        // A photo gets no canned reply — the demo ends on the sent bubble.
+        guard image == nil else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             guard let self else { return }
-            let reply = hadPhoto ? "thanksssss" : "👍"
-            self.messages.append(Message(content: .text(reply), isOutgoing: false, date: Date()))
+            self.messages.append(Message(content: .text("👍"), isOutgoing: false, date: Date()))
             self.tableView.reloadData()
             self.scrollToBottom(animated: true)
         }

@@ -96,7 +96,9 @@ final class QuickAttachOverlayView: UIView {
         }
 
         // Item 0 is always the live camera tile (ChatGPT reference), then photos.
-        let cameraItem = CameraStripItemView()
+        let cameraItem = CameraStripItemView.shared
+        cameraItem.removeFromSuperview()
+        cameraItem.warmUp()
         var views: [UIImageView] = [cameraItem]
         views.append(contentsOf: images.map { UIImageView(image: $0) })
         for view in views {
@@ -114,6 +116,12 @@ final class QuickAttachOverlayView: UIView {
         // vertical spring with overshoot + a slower horizontal one bend the
         // path into a natural arc while keeping true spring physics.
         for (index, view) in itemViews.enumerated() {
+            // The camera tile is reused between presentations and still carries
+            // the transform baked in when the fan last folded. Assigning .frame
+            // under a scaled transform derives bounds as frame / scale, which
+            // blows the tile up once the flight animates the scale back to 1.
+            view.layer.removeAllAnimations()
+            view.transform = .identity
             view.frame = itemFrames[index]
             view.alpha = 0.0 // fades in over 0.15s with the card's launch
             view.layer.cornerRadius = 34.0
@@ -484,12 +492,14 @@ final class QuickAttachOverlayView: UIView {
                 selected.frame = targetRect
                 selected.layer.shadowOpacity = 0.0
             } completion: { _ in
+                CameraStripItemView.shared.scheduleCooldown()
                 self.removeFromSuperview()
                 completion()
             }
         } else {
             // Cards are fully faded by ~0.45s; no need to hold the overlay longer.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                CameraStripItemView.shared.scheduleCooldown()
                 self.removeFromSuperview()
                 completion()
             }
@@ -522,9 +532,37 @@ enum AttachmentBadge {
 /// Live camera tile for the quick-attach strip: real viewfinder where a camera
 /// exists (device), dark placeholder with the camera icon otherwise (simulator).
 final class CameraStripItemView: UIImageView {
+    /// One instance for the whole app: the capture session survives between
+    /// presentations, so a warmed-up viewfinder is still live next time.
+    static let shared = CameraStripItemView()
+
     private var session: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private let iconView = UIImageView()
+    private var cooldownTimer: Timer?
+
+    /// Start the camera ahead of the card — called on the attach button's
+    /// touch-down, a press duration before the fan opens.
+    func warmUp() {
+        cooldownTimer?.invalidate()
+        cooldownTimer = nil
+        guard let session, !session.isRunning else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.startRunning()
+        }
+    }
+
+    /// Stop it a few seconds after the overlay is gone, so the camera and its
+    /// privacy indicator do not stay on for a fan nobody opened again.
+    func scheduleCooldown() {
+        cooldownTimer?.invalidate()
+        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            guard let session = self?.session, session.isRunning else { return }
+            DispatchQueue.global(qos: .utility).async {
+                session.stopRunning()
+            }
+        }
+    }
 
     init() {
         super.init(frame: .zero)
@@ -547,9 +585,6 @@ final class CameraStripItemView: UIImageView {
                 self.layer.insertSublayer(layer, at: 0)
                 self.session = session
                 self.previewLayer = layer
-                DispatchQueue.global(qos: .userInitiated).async {
-                    session.startRunning()
-                }
             }
         }
     }
