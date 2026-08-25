@@ -2,8 +2,10 @@
 
 <img src="docs/fan-frames.png" width="900" alt="ten frames of the fan opening">
 
-Telegram's iOS chat screen, rebuilt in UIKit, with one thing added:
-**quick attach on a long press**, the way ChatGPT does it.
+Telegram's iOS chat screen, rebuilt in plain UIKit — the original runs on
+their AsyncDisplayKit fork, with nodes and hand-computed layout — plus one
+thing Telegram doesn't have: **quick attach on a long press**, the way ChatGPT
+does it.
 
 ## Why
 
@@ -20,7 +22,8 @@ No dependencies, UIKit, iOS 16+.
 
 The screen is transcribed from [Telegram-iOS](https://github.com/TelegramMessenger/Telegram-iOS) —
 bubble images, the gradient wallpaper kernel, glass header and composer,
-CoreText bubble widths — rather than eyeballed.
+CoreText bubble widths — rather than eyeballed, but rebuilt on `UITableView`
+and Auto Layout instead of their `ListView` and `ASDisplayNode`.
 
 The fan is the interesting part. One spring per card would fly it in a straight
 line, so each card runs **two springs — one on `position.x`, one on
