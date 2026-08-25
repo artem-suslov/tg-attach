@@ -39,7 +39,6 @@ final class ChatInputPanelView: UIView {
     private(set) var attachedImage: UIImage?
 
     var onSend: ((String?, UIImage?) -> Void)?
-    var onAttachTap: (() -> Void)?
 
     private let chipSide: CGFloat = 64
     private let chipInset: CGFloat = 8
@@ -332,10 +331,6 @@ final class ChatInputPanelView: UIView {
     }
 
     // MARK: - Actions
-
-    @objc private func attachTapped() {
-        onAttachTap?()
-    }
 
     @objc private func textChanged() {
         updateSendButton()
