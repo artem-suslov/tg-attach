@@ -1,22 +1,40 @@
 import UIKit
 
-/// Telegram-style chat composer: "+" attach button, text field, send/mic button,
-/// plus an attachment chip row (photo preview with an "×" badge) shown above the
-/// text row when a photo has been quick-attached.
+/// Telegram chat composer reproduced from ChatTextInputPanelNode (HEAD 6ad963e):
+/// no panel background, three glass elements — 40pt attach circle, field capsule
+/// with the sticker accessory, 40pt mic circle that slides off-screen when text
+/// is entered, and a 40x34 accent send pill overlapping the field's right edge.
+///
+/// Quick-attach behavior follows the ChatGPT reference video (IMG_2842.MP4):
+/// on release the field capsule EXPANDS upward and the photo becomes an
+/// attachment preview INSIDE the input, with an "×" badge on its corner;
+/// the message is sent only via the send button.
 final class ChatInputPanelView: UIView {
 
-    let attachButton = UIButton(type: .system)
+    let attachButton = UIButton(type: .custom)
+    private let attachGlass = GlassSurfaceView(style: .regular, interactive: true)
     private let attachIcon = UIImageView()
-    private let separator = UIView()
-    private let fieldBackground = UIView()
+    private let fieldBackground = GlassSurfaceView(style: .regular, interactive: true, cornerRadius: 20)
     private let textField = UITextField()
-    private let sendButton = UIButton(type: .system)
-    private let micButton = UIButton(type: .system)
+    private let stickerIcon = UIImageView()
+    private let micButton = UIButton(type: .custom)
+    private let micGlass = GlassSurfaceView(style: .regular, interactive: true)
+    private let micIcon = UIImageView()
+    private let sendContainer = UIView()
+    private let sendPill = UIView()
+    private let sendIconView = UIImageView()
+    private let sendButton = UIButton(type: .custom)
 
-    private let chipContainer = UIView()
+    private let chipWrap = UIView()
     private let chipImageView = UIImageView()
-    private let chipRemoveButton = UIButton(type: .system)
-    private var chipHeightConstraint: NSLayoutConstraint!
+    private let chipRemoveButton = UIButton(type: .custom)
+    private let chipRemoveIcon = AttachmentBadge.makeIcon()
+
+    private var fieldHeightConstraint: NSLayoutConstraint!
+    private var fieldTrailingToMic: NSLayoutConstraint!
+    private var fieldTrailingToEdge: NSLayoutConstraint!
+    private var textFieldTrailing: NSLayoutConstraint!
+    private var hasContentState = false
 
     private(set) var attachedImage: UIImage?
 
@@ -24,142 +42,237 @@ final class ChatInputPanelView: UIView {
     var onAttachTap: (() -> Void)?
 
     private let chipSide: CGFloat = 64
-    private let chipTopPadding: CGFloat = 10
+    private let chipInset: CGFloat = 8
+    private let fieldIdleHeight: CGFloat = 40
+    private var fieldExpandedHeight: CGFloat { chipInset + chipSide + fieldIdleHeight }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = Theme.panelBackground
+        // ChatControllerNode passes .clear: no panel background, no separator.
+        backgroundColor = .clear
 
-        separator.backgroundColor = Theme.panelSeparator
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(separator)
+        // Attach button: 40pt glass circle, IconAttachment 30pt, black tint.
+        attachButton.translatesAutoresizingMaskIntoConstraints = false
+        attachGlass.translatesAutoresizingMaskIntoConstraints = false
+        attachGlass.isUserInteractionEnabled = false
+        attachButton.addSubview(attachGlass)
+        attachIcon.image = UIImage(named: "TGIconAttachment")
+        attachIcon.tintColor = Theme.panelControl
+        attachIcon.translatesAutoresizingMaskIntoConstraints = false
+        attachGlass.contentView.addSubview(attachIcon)
+        addSubview(attachButton) // plain tap removed: quick attach long-press only
 
-        // Attachment chip row (hidden by default).
-        chipContainer.translatesAutoresizingMaskIntoConstraints = false
-        chipContainer.clipsToBounds = true
-        addSubview(chipContainer)
+        // Field: glass rounded rect, radius 20 (== capsule at the idle 40pt height,
+        // stays 20 like the ChatGPT reference when expanded with an attachment).
+        fieldBackground.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(fieldBackground)
+
+        textField.attributedPlaceholder = NSAttributedString(
+            string: "Message",
+            attributes: [.foregroundColor: Theme.inputPlaceholder]
+        )
+        textField.font = .systemFont(ofSize: 17)
+        textField.textColor = Theme.inputText
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.addTarget(self, action: #selector(textChanged), for: .editingChanged)
+        textField.returnKeyType = .send
+        textField.delegate = self
+        fieldBackground.contentView.addSubview(textField)
+
+        // Sticker accessory: 24pt, inputControl tint at view alpha 0.5.
+        stickerIcon.image = UIImage(named: "TGAccessoryIconStickers")
+        stickerIcon.tintColor = Theme.inputControl
+        stickerIcon.alpha = 0.5
+        stickerIcon.isUserInteractionEnabled = false
+        stickerIcon.translatesAutoresizingMaskIntoConstraints = false
+        fieldBackground.contentView.addSubview(stickerIcon)
+
+        // Attachment preview inside the field (ChatGPT reference).
+        chipWrap.translatesAutoresizingMaskIntoConstraints = false
+        chipWrap.alpha = 0.0
+        fieldBackground.contentView.addSubview(chipWrap)
 
         chipImageView.contentMode = .scaleAspectFill
         chipImageView.clipsToBounds = true
         chipImageView.layer.cornerRadius = 10
         chipImageView.translatesAutoresizingMaskIntoConstraints = false
-        chipContainer.addSubview(chipImageView)
+        chipWrap.addSubview(chipImageView)
 
-        chipRemoveButton.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .bold)), for: .normal)
-        chipRemoveButton.tintColor = .white
-        chipRemoveButton.backgroundColor = UIColor(white: 0.2, alpha: 0.85)
-        chipRemoveButton.layer.cornerRadius = 11
-        chipRemoveButton.layer.borderWidth = 1.5
-        chipRemoveButton.layer.borderColor = UIColor.white.cgColor
+        // ChatGPT reference: × inside the thumbnail, black-40% circle, no border.
+        // The glyph is an image view, not the button's own image: the flying
+        // badge hands over to this one, so both are built by AttachmentBadge.
+        chipRemoveButton.backgroundColor = AttachmentBadge.circleColor
+        chipRemoveButton.layer.cornerRadius = AttachmentBadge.cornerRadius
+        chipRemoveIcon.translatesAutoresizingMaskIntoConstraints = false
+        chipRemoveButton.addSubview(chipRemoveIcon)
+        chipRemoveButton.alpha = 0.0
         chipRemoveButton.translatesAutoresizingMaskIntoConstraints = false
         chipRemoveButton.addTarget(self, action: #selector(removeAttachment), for: .touchUpInside)
-        chipContainer.addSubview(chipRemoveButton)
+        fieldBackground.contentView.addSubview(chipRemoveButton)
 
-        // Attach "+" button.
-        attachButton.translatesAutoresizingMaskIntoConstraints = false
-        attachButton.setImage(UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)), for: .normal)
-        attachButton.tintColor = Theme.panelIcon
-        attachButton.backgroundColor = UIColor(white: 0.0, alpha: 0.05)
-        attachButton.layer.cornerRadius = 17
-        addSubview(attachButton)
-        attachButton.addTarget(self, action: #selector(attachTapped), for: .touchUpInside)
+        // Mic: 40pt glass circle, IconMicrophone 30pt, black tint.
+        micButton.translatesAutoresizingMaskIntoConstraints = false
+        micGlass.translatesAutoresizingMaskIntoConstraints = false
+        micGlass.isUserInteractionEnabled = false
+        micButton.addSubview(micGlass)
+        micIcon.image = UIImage(named: "TGIconMicrophone")
+        micIcon.tintColor = Theme.panelControl
+        micIcon.translatesAutoresizingMaskIntoConstraints = false
+        micGlass.contentView.addSubview(micIcon)
+        addSubview(micButton)
 
-        // Text field.
-        fieldBackground.backgroundColor = Theme.fieldBackground
-        fieldBackground.layer.cornerRadius = 17
-        fieldBackground.layer.borderWidth = 0.5
-        fieldBackground.layer.borderColor = Theme.fieldBorder.cgColor
-        fieldBackground.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(fieldBackground)
+        // Send: 46x40 container overlapping the field's right edge;
+        // pill inset (3,3) -> 40x34, radius 17, accent fill, send.pdf icon.
+        sendContainer.translatesAutoresizingMaskIntoConstraints = false
+        sendContainer.alpha = 0.0
+        sendContainer.isUserInteractionEnabled = false
+        addSubview(sendContainer)
 
-        textField.attributedPlaceholder = NSAttributedString(
-            string: "Сообщение",
-            attributes: [.foregroundColor: Theme.placeholder]
-        )
-        textField.font = .systemFont(ofSize: 17)
-        textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.addTarget(self, action: #selector(textChanged), for: .editingChanged)
-        textField.returnKeyType = .send
-        textField.delegate = self
-        fieldBackground.addSubview(textField)
+        sendPill.backgroundColor = Theme.sendPill
+        sendPill.layer.cornerRadius = 17
+        sendPill.transform = CGAffineTransform(scaleX: 0.001, y: 0.001)
+        sendPill.translatesAutoresizingMaskIntoConstraints = false
+        sendContainer.addSubview(sendPill)
 
-        // Send / mic buttons.
+        sendIconView.image = UIImage(named: "TGSendIcon")
+        sendIconView.tintColor = Theme.sendIcon
+        sendIconView.translatesAutoresizingMaskIntoConstraints = false
+        sendPill.addSubview(sendIconView)
+
         sendButton.translatesAutoresizingMaskIntoConstraints = false
-        sendButton.setImage(UIImage(systemName: "arrow.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)), for: .normal)
-        sendButton.tintColor = .white
-        sendButton.backgroundColor = Theme.accent
-        sendButton.layer.cornerRadius = 17
-        sendButton.alpha = 0.0
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
         addSubview(sendButton)
 
-        micButton.translatesAutoresizingMaskIntoConstraints = false
-        micButton.setImage(UIImage(systemName: "mic", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)), for: .normal)
-        micButton.tintColor = Theme.panelIcon
-        addSubview(micButton)
-
-        chipHeightConstraint = chipContainer.heightAnchor.constraint(equalToConstant: 0)
+        fieldHeightConstraint = fieldBackground.heightAnchor.constraint(equalToConstant: fieldIdleHeight)
+        fieldTrailingToMic = fieldBackground.trailingAnchor.constraint(equalTo: micButton.leadingAnchor, constant: -6)
+        fieldTrailingToEdge = fieldBackground.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8)
+        textFieldTrailing = textField.trailingAnchor.constraint(equalTo: fieldBackground.trailingAnchor, constant: -21)
 
         NSLayoutConstraint.activate([
-            separator.topAnchor.constraint(equalTo: topAnchor),
-            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1.0 / UIScreen.main.scale),
+            // Attach: x = 8, bottom-aligned with the field's text row.
+            attachButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            attachButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+            attachButton.widthAnchor.constraint(equalToConstant: 40),
+            attachButton.heightAnchor.constraint(equalToConstant: 40),
 
-            chipContainer.topAnchor.constraint(equalTo: topAnchor),
-            chipContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            chipContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            chipHeightConstraint,
+            attachGlass.leadingAnchor.constraint(equalTo: attachButton.leadingAnchor),
+            attachGlass.topAnchor.constraint(equalTo: attachButton.topAnchor),
+            attachGlass.trailingAnchor.constraint(equalTo: attachButton.trailingAnchor),
+            attachGlass.bottomAnchor.constraint(equalTo: attachButton.bottomAnchor),
+            attachIcon.centerXAnchor.constraint(equalTo: attachGlass.centerXAnchor),
+            attachIcon.centerYAnchor.constraint(equalTo: attachGlass.centerYAnchor),
 
-            chipImageView.leadingAnchor.constraint(equalTo: chipContainer.leadingAnchor),
-            chipImageView.topAnchor.constraint(equalTo: chipContainer.topAnchor, constant: chipTopPadding),
-            chipImageView.widthAnchor.constraint(equalToConstant: chipSide),
-            chipImageView.heightAnchor.constraint(equalToConstant: chipSide),
+            // Field: leading = attach + 6, grows upward from the panel bottom.
+            fieldBackground.leadingAnchor.constraint(equalTo: attachButton.trailingAnchor, constant: 6),
+            fieldBackground.topAnchor.constraint(equalTo: topAnchor),
+            fieldBackground.bottomAnchor.constraint(equalTo: bottomAnchor),
+            fieldHeightConstraint,
+            fieldTrailingToMic,
 
-            chipRemoveButton.centerXAnchor.constraint(equalTo: chipImageView.trailingAnchor, constant: -4),
-            chipRemoveButton.centerYAnchor.constraint(equalTo: chipImageView.topAnchor, constant: 4),
-            chipRemoveButton.widthAnchor.constraint(equalToConstant: 22),
-            chipRemoveButton.heightAnchor.constraint(equalToConstant: 22),
-
-            attachButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            attachButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            attachButton.widthAnchor.constraint(equalToConstant: 34),
-            attachButton.heightAnchor.constraint(equalToConstant: 34),
-
-            fieldBackground.leadingAnchor.constraint(equalTo: attachButton.trailingAnchor, constant: 8),
-            fieldBackground.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -8),
-            fieldBackground.topAnchor.constraint(equalTo: chipContainer.bottomAnchor, constant: 8),
-            fieldBackground.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            fieldBackground.heightAnchor.constraint(equalToConstant: 34),
-
+            // Text row pinned to the field bottom: left 12, right toggled -47/-82.
             textField.leadingAnchor.constraint(equalTo: fieldBackground.leadingAnchor, constant: 12),
-            textField.trailingAnchor.constraint(equalTo: fieldBackground.trailingAnchor, constant: -12),
-            textField.topAnchor.constraint(equalTo: fieldBackground.topAnchor),
+            textFieldTrailing,
             textField.bottomAnchor.constraint(equalTo: fieldBackground.bottomAnchor),
+            textField.heightAnchor.constraint(equalToConstant: 40),
 
-            sendButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            sendButton.centerYAnchor.constraint(equalTo: fieldBackground.centerYAnchor),
-            sendButton.widthAnchor.constraint(equalToConstant: 34),
-            sendButton.heightAnchor.constraint(equalToConstant: 34),
+            stickerIcon.trailingAnchor.constraint(equalTo: fieldBackground.trailingAnchor, constant: -8),
+            stickerIcon.centerYAnchor.constraint(equalTo: fieldBackground.bottomAnchor, constant: -20),
+            stickerIcon.widthAnchor.constraint(equalToConstant: 24),
+            stickerIcon.heightAnchor.constraint(equalToConstant: 24),
 
-            micButton.centerXAnchor.constraint(equalTo: sendButton.centerXAnchor),
-            micButton.centerYAnchor.constraint(equalTo: sendButton.centerYAnchor),
+            // Attachment preview at the field's top-left (inside).
+            chipWrap.leadingAnchor.constraint(equalTo: fieldBackground.leadingAnchor, constant: chipInset),
+            chipWrap.topAnchor.constraint(equalTo: fieldBackground.topAnchor, constant: chipInset),
+            chipWrap.widthAnchor.constraint(equalToConstant: chipSide),
+            chipWrap.heightAnchor.constraint(equalToConstant: chipSide),
+
+            chipImageView.leadingAnchor.constraint(equalTo: chipWrap.leadingAnchor),
+            chipImageView.topAnchor.constraint(equalTo: chipWrap.topAnchor),
+            chipImageView.trailingAnchor.constraint(equalTo: chipWrap.trailingAnchor),
+            chipImageView.bottomAnchor.constraint(equalTo: chipWrap.bottomAnchor),
+
+            chipRemoveButton.trailingAnchor.constraint(equalTo: chipWrap.trailingAnchor, constant: -AttachmentBadge.inset),
+            chipRemoveButton.topAnchor.constraint(equalTo: chipWrap.topAnchor, constant: AttachmentBadge.inset),
+            chipRemoveButton.widthAnchor.constraint(equalToConstant: AttachmentBadge.side),
+            chipRemoveButton.heightAnchor.constraint(equalToConstant: AttachmentBadge.side),
+
+            chipRemoveIcon.leadingAnchor.constraint(equalTo: chipRemoveButton.leadingAnchor),
+            chipRemoveIcon.trailingAnchor.constraint(equalTo: chipRemoveButton.trailingAnchor),
+            chipRemoveIcon.topAnchor.constraint(equalTo: chipRemoveButton.topAnchor),
+            chipRemoveIcon.bottomAnchor.constraint(equalTo: chipRemoveButton.bottomAnchor),
+
+            // Mic: trailing 8, bottom-aligned with the field.
+            micButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            micButton.bottomAnchor.constraint(equalTo: fieldBackground.bottomAnchor),
+            micButton.widthAnchor.constraint(equalToConstant: 40),
+            micButton.heightAnchor.constraint(equalToConstant: 40),
+
+            micGlass.leadingAnchor.constraint(equalTo: micButton.leadingAnchor),
+            micGlass.topAnchor.constraint(equalTo: micButton.topAnchor),
+            micGlass.trailingAnchor.constraint(equalTo: micButton.trailingAnchor),
+            micGlass.bottomAnchor.constraint(equalTo: micButton.bottomAnchor),
+            micIcon.centerXAnchor.constraint(equalTo: micGlass.centerXAnchor),
+            micIcon.centerYAnchor.constraint(equalTo: micGlass.centerYAnchor),
+
+            // Send: 46x40 at the right edge of the field's text row.
+            sendContainer.trailingAnchor.constraint(equalTo: fieldBackground.trailingAnchor),
+            sendContainer.bottomAnchor.constraint(equalTo: fieldBackground.bottomAnchor),
+            sendContainer.widthAnchor.constraint(equalToConstant: 46),
+            sendContainer.heightAnchor.constraint(equalToConstant: 40),
+
+            sendPill.leadingAnchor.constraint(equalTo: sendContainer.leadingAnchor, constant: 3),
+            sendPill.topAnchor.constraint(equalTo: sendContainer.topAnchor, constant: 3),
+            sendPill.trailingAnchor.constraint(equalTo: sendContainer.trailingAnchor, constant: -3),
+            sendPill.bottomAnchor.constraint(equalTo: sendContainer.bottomAnchor, constant: -3),
+
+            sendIconView.centerXAnchor.constraint(equalTo: sendPill.centerXAnchor),
+            sendIconView.centerYAnchor.constraint(equalTo: sendPill.centerYAnchor),
+            sendIconView.widthAnchor.constraint(equalToConstant: 30),
+            sendIconView.heightAnchor.constraint(equalToConstant: 30),
+
+            sendButton.leadingAnchor.constraint(equalTo: sendContainer.leadingAnchor),
+            sendButton.topAnchor.constraint(equalTo: sendContainer.topAnchor),
+            sendButton.trailingAnchor.constraint(equalTo: sendContainer.trailingAnchor),
+            sendButton.bottomAnchor.constraint(equalTo: sendContainer.bottomAnchor),
         ])
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    // MARK: - Attachment chip
+    // MARK: - Attachment preview (ChatGPT reference behavior)
 
-    /// Reserves the chip slot (expands the panel) and returns the frame the flying
-    /// thumbnail should land in, in `view`'s coordinate space. The chip itself is
-    /// revealed later via `revealAttachment`.
-    func prepareAttachmentSlot(in view: UIView) -> CGRect {
-        chipHeightConstraint.constant = chipSide + chipTopPadding
-        chipImageView.alpha = 0.0
+    /// Expands the field to its FULL target state in one motion — height for
+    /// the preview slot, width to the panel edge, mic slide-off, and the send
+    /// pill — all in a single spring that matches the thumbnail flight in
+    /// QuickAttachOverlayView.dismiss (0.32s / damping 0.82 / velocity 0.4).
+    /// Returns the frame the flying thumbnail should land in, in `view`'s
+    /// coordinate space. The preview itself is revealed via `revealAttachment`.
+    func prepareAttachmentSlot(in view: UIView, image: UIImage) -> CGRect {
+        attachedImage = image
+        chipImageView.image = image
+        chipWrap.alpha = 0.0
         chipRemoveButton.alpha = 0.0
-        UIView.animate(withDuration: 0.3, delay: 0.0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.3) {
+        fieldHeightConstraint.constant = fieldExpandedHeight
+
+        if !hasContentState {
+            hasContentState = true
+            fieldTrailingToMic.isActive = false
+            fieldTrailingToEdge.isActive = true
+            textFieldTrailing.constant = -67
+            sendContainer.isUserInteractionEnabled = true
+            sendButton.isUserInteractionEnabled = true
+            sendIconView.transform = CGAffineTransform(translationX: -22, y: 18)
+            UIView.animate(withDuration: 0.2, delay: 0.0, options: [.curveEaseInOut]) {
+                self.sendContainer.alpha = 1.0
+            }
+        }
+
+        UIView.animate(withDuration: 0.32, delay: 0.0, usingSpringWithDamping: 0.82, initialSpringVelocity: 0.4) {
             self.superview?.layoutIfNeeded()
+            self.micButton.transform = CGAffineTransform(translationX: 56, y: 0)
+            self.stickerIcon.transform = CGAffineTransform(translationX: -46, y: 0)
+            self.sendPill.transform = .identity
+            self.sendIconView.transform = .identity
         }
         superview?.layoutIfNeeded()
         return chipImageView.convert(chipImageView.bounds, to: view)
@@ -168,22 +281,24 @@ final class ChatInputPanelView: UIView {
     func revealAttachment(_ image: UIImage) {
         attachedImage = image
         chipImageView.image = image
-        chipImageView.alpha = 1.0
-        chipRemoveButton.alpha = 0.0
-        chipRemoveButton.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
-        UIView.animate(withDuration: 0.25, delay: 0.1, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.4) {
-            self.chipRemoveButton.alpha = 1.0
-            self.chipRemoveButton.transform = .identity
-        }
+        chipWrap.alpha = 1.0
+        // The badge already arrived visually on the flying thumbnail — show
+        // the real one instantly, no pop.
+        chipRemoveButton.transform = .identity
+        chipRemoveButton.alpha = 1.0
         updateSendButton()
     }
 
     @objc private func removeAttachment() {
         attachedImage = nil
-        chipHeightConstraint.constant = 0
-        UIView.animate(withDuration: 0.25) {
-            self.chipImageView.alpha = 0.0
+        // Preview blinks out fast (~70ms), then the capsule resizes back down
+        // with a spring.
+        UIView.animate(withDuration: 0.07, delay: 0.0, options: [.curveLinear]) {
+            self.chipWrap.alpha = 0.0
             self.chipRemoveButton.alpha = 0.0
+        }
+        fieldHeightConstraint.constant = fieldIdleHeight
+        UIView.animate(withDuration: 0.4, delay: 0.0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.4) {
             self.superview?.layoutIfNeeded()
         } completion: { _ in
             self.chipImageView.image = nil
@@ -195,13 +310,25 @@ final class ChatInputPanelView: UIView {
         textField.text = nil
         attachedImage = nil
         chipImageView.image = nil
-        chipImageView.alpha = 0.0
+        chipWrap.alpha = 0.0
         chipRemoveButton.alpha = 0.0
-        chipHeightConstraint.constant = 0
+        fieldHeightConstraint.constant = fieldIdleHeight
         UIView.animate(withDuration: 0.25) {
             self.superview?.layoutIfNeeded()
         }
         updateSendButton()
+    }
+
+    // MARK: - Frames for the send transition
+
+    /// Current attachment preview frame in `view` coordinates (send source).
+    func chipFrame(in view: UIView) -> CGRect {
+        chipImageView.convert(chipImageView.bounds, to: view)
+    }
+
+    /// Field capsule frame in `view` coordinates (send source for text).
+    func fieldFrame(in view: UIView) -> CGRect {
+        fieldBackground.convert(fieldBackground.bounds, to: view)
     }
 
     // MARK: - Actions
@@ -220,11 +347,42 @@ final class ChatInputPanelView: UIView {
         onSend?(text?.isEmpty == false ? text : nil, attachedImage)
     }
 
+    /// Telegram behavior: entering text slides the mic off-screen to the right
+    /// (ChatTextInputPanelNode.swift:3432), the field extends to the panel edge,
+    /// and the send pill materializes inside the field's right edge with a
+    /// 0.2s fade + scale-up + icon slide-in from (-22, 18).
     private func updateSendButton() {
         let hasContent = (textField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) || attachedImage != nil
-        UIView.animate(withDuration: 0.2) {
-            self.sendButton.alpha = hasContent ? 1.0 : 0.0
-            self.micButton.alpha = hasContent ? 0.0 : 1.0
+        guard hasContent != hasContentState else { return }
+        hasContentState = hasContent
+
+        if hasContent {
+            fieldTrailingToMic.isActive = false
+            fieldTrailingToEdge.isActive = true
+        } else {
+            fieldTrailingToEdge.isActive = false
+            fieldTrailingToMic.isActive = true
+        }
+        textFieldTrailing.constant = hasContent ? -67 : -21
+        sendContainer.isUserInteractionEnabled = hasContent
+        sendButton.isUserInteractionEnabled = hasContent
+
+        // Telegram runs the layout motion on a 0.4s spring transition; only the
+        // send container's alpha uses the 0.2s easeInOut fade.
+        UIView.animate(withDuration: 0.2, delay: 0.0, options: [.curveEaseInOut]) {
+            self.sendContainer.alpha = hasContent ? 1.0 : 0.0
+        }
+        UIView.animate(withDuration: 0.4, delay: 0.0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.3) {
+            self.superview?.layoutIfNeeded()
+            self.micButton.transform = hasContent ? CGAffineTransform(translationX: 56, y: 0) : .identity
+            self.stickerIcon.transform = hasContent ? CGAffineTransform(translationX: -46, y: 0) : .identity
+            self.sendPill.transform = hasContent ? .identity : CGAffineTransform(scaleX: 0.001, y: 0.001)
+        }
+        if hasContent {
+            sendIconView.transform = CGAffineTransform(translationX: -22, y: 18)
+            UIView.animate(withDuration: 0.4, delay: 0.0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.3) {
+                self.sendIconView.transform = .identity
+            }
         }
     }
 }
