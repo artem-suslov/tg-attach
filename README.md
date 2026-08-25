@@ -9,12 +9,12 @@ does it.
 
 ## Why
 
-Sending a photo you just took costs four steps — paperclip, sheet, scroll,
+Sending a photo you just took costs some steps — paperclip, sheet,
 tap — and it's almost always one of the last few pictures in the roll.
 
 Here you press and hold the paperclip, four thumbnails fan out of it (camera
 first, then recents), you slide onto one and let go. It lands in the composer.
-Release anywhere else and everything folds back. One gesture, no sheet.
+Release anywhere else and everything folds back.
 
 ## How
 
