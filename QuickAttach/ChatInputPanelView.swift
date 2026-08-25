@@ -11,7 +11,7 @@ import UIKit
 /// the message is sent only via the send button.
 final class ChatInputPanelView: UIView {
 
-    let attachButton = UIButton(type: .custom)
+    let attachButton = HitSlopButton(type: .custom)
     private let attachGlass = GlassSurfaceView(style: .regular, interactive: true)
     private let attachIcon = UIImageView()
     private let fieldBackground = GlassSurfaceView(style: .regular, interactive: true, cornerRadius: 20)
@@ -59,6 +59,7 @@ final class ChatInputPanelView: UIView {
         attachIcon.tintColor = Theme.panelControl
         attachIcon.translatesAutoresizingMaskIntoConstraints = false
         attachGlass.contentView.addSubview(attachIcon)
+        attachButton.hitSlop = 4 // 48x48 touch area behind the 40pt circle
         addSubview(attachButton) // plain tap removed: quick attach long-press only
 
         // Field: glass rounded rect, radius 20 (== capsule at the idle 40pt height,
@@ -326,6 +327,15 @@ final class ChatInputPanelView: UIView {
     }
 
     /// Field capsule frame in `view` coordinates (send source for text).
+    /// The attach button's hit slop reaches past the panel's own bounds (the
+    /// button is flush with the panel's bottom edge), and a point outside those
+    /// bounds never reaches the button on its own. Hand it over explicitly.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let hit = super.hitTest(point, with: event) { return hit }
+        let inAttach = attachButton.point(inside: convert(point, to: attachButton), with: event)
+        return inAttach ? attachButton : nil
+    }
+
     func fieldFrame(in view: UIView) -> CGRect {
         fieldBackground.convert(fieldBackground.bounds, to: view)
     }
@@ -379,6 +389,16 @@ final class ChatInputPanelView: UIView {
                 self.sendIconView.transform = .identity
             }
         }
+    }
+}
+
+/// Button whose touch area is larger than its artwork. The attach circle is
+/// 40pt because that is what Telegram draws; the finger gets a bit more.
+final class HitSlopButton: UIButton {
+    var hitSlop: CGFloat = 0
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        bounds.insetBy(dx: -hitSlop, dy: -hitSlop).contains(point)
     }
 }
 

@@ -397,7 +397,9 @@ final class ChatViewController: UIViewController {
         // In real Telegram-iOS this is a ContextGesture on attachmentButton
         // (same pattern as sendButtonLongPressed). Here: UILongPressGestureRecognizer.
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleAttachLongPress(_:)))
-        longPress.minimumPressDuration = 0.33
+        // Nothing else responds to a plain tap on the paperclip, so the press
+        // does not have to wait out a tap: 0.15s reads as immediate.
+        longPress.minimumPressDuration = 0.15
         inputPanel.attachButton.addGestureRecognizer(longPress)
     }
 
