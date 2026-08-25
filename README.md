@@ -1,6 +1,6 @@
 # QuickAttach
 
-<img src="docs/fan-frames.png" width="900" alt="seven frames: the fan opens, a photo lands in the composer">
+<img src="docs/fan-frames.png" width="900" alt="six frames of the fan opening, then the attached photo">
 
 Telegram's iOS chat screen, rebuilt in plain UIKit — the original runs on
 their AsyncDisplayKit fork, with nodes and hand-computed layout — plus one
