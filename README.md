@@ -3,7 +3,7 @@
 Telegram's iOS chat screen, rebuilt in UIKit, with one thing added:
 **quick attach on a long press**, the way ChatGPT does it.
 
-<img src="docs/screenshot.png" width="620" alt="chat screen and the fan open">
+<img src="docs/screenshot.png" width="300" alt="the chat screen">
 
 ## Why
 
