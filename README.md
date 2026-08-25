@@ -3,7 +3,7 @@
 Telegram's iOS chat screen, rebuilt in UIKit, with one thing added:
 **quick attach on a long press**, the way ChatGPT does it.
 
-![screen](docs/screenshot.png)
+<img src="docs/screenshot.png" width="620" alt="chat screen and the fan open">
 
 ## Why
 
@@ -30,7 +30,7 @@ physics, which a keyframed curve throws away. Cancelling swaps the two axes'
 parameters and the card leaves along the path it arrived on. Numbers live in
 `FanTuning.swift`, the gesture in `QuickAttachOverlayView.swift`.
 
-![frames](docs/fan-frames.png)
+<img src="docs/fan-frames.png" width="900" alt="ten frames of the fan opening">
 
 Ten frames of the fan opening: the cards are born at the paperclip, nearly
 circular and blurred, and resolve into rounded squares as they spread.
