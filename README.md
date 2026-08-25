@@ -1,9 +1,9 @@
 # QuickAttach
 
+<img src="docs/fan-frames.png" width="900" alt="ten frames of the fan opening">
+
 Telegram's iOS chat screen, rebuilt in UIKit, with one thing added:
 **quick attach on a long press**, the way ChatGPT does it.
-
-<img src="docs/fan-frames.png" width="900" alt="ten frames of the fan opening">
 
 ## Why
 
