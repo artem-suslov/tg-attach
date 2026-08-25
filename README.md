@@ -30,6 +30,11 @@ physics, which a keyframed curve throws away. Cancelling swaps the two axes'
 parameters and the card leaves along the path it arrived on. Numbers live in
 `FanTuning.swift`, the gesture in `QuickAttachOverlayView.swift`.
 
+![frames](docs/fan-frames.png)
+
+Ten frames of the fan opening: the cards are born at the paperclip, nearly
+circular and blurred, and resolve into rounded squares as they spread.
+
 ## Run
 
 Open `QuickAttach.xcodeproj`, pick a simulator, Run, hold the paperclip.
