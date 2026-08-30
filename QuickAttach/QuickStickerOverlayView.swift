@@ -57,7 +57,7 @@ final class QuickStickerOverlayView: UIView {
         }
 
         itemViews = zip(stickers, itemFrames).map { sticker, frame in
-            let view = StickerPreviewView(cornerRadius: 8)
+            let view = StickerPreviewView(cornerRadius: 20)
             view.configure(with: sticker)
             view.frame = frame
             view.alpha = 0
@@ -80,8 +80,8 @@ final class QuickStickerOverlayView: UIView {
             view.layer.add(spring("position.x", from: source.x, to: destination.x, stiffness: tuning.xStiffness, dampingRatio: tuning.xDamping, begin: begin), forKey: "flightX")
             view.layer.add(spring("position.y", from: source.y, to: destination.y, stiffness: tuning.yStiffness, dampingRatio: yDamping, begin: begin), forKey: "flightY")
             view.layer.add(spring("transform.scale", from: tuning.birthScale, to: 1, stiffness: tuning.xStiffness, dampingRatio: tuning.xDamping, begin: begin), forKey: "flightScale")
-            view.layer.add(spring("cornerRadius", from: itemSide / 2, to: 8, stiffness: tuning.xStiffness, dampingRatio: tuning.xDamping, begin: begin), forKey: "cornerMorph")
-            view.setCornerRadius(8)
+            view.layer.add(spring("cornerRadius", from: itemSide / 2, to: 20, stiffness: tuning.xStiffness, dampingRatio: tuning.xDamping, begin: begin), forKey: "cornerMorph")
+            view.setCornerRadius(20)
             UIView.animate(withDuration: 0.15, delay: max(0, begin - CACurrentMediaTime()), options: .curveEaseOut) {
                 view.alpha = 1
             }
