@@ -139,7 +139,7 @@ final class TextMessageCell: UITableViewCell {
         particleTextView.configure(
             text: text,
             font: messageLabel.font,
-            color: messageLabel.textColor,
+            color: messageLabel.textColor ?? Theme.incomingText,
             hidden: usesParticles && particleHidden,
             enabled: usesParticles,
             onRevealChanged: onParticleRevealChanged
