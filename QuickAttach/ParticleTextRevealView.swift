@@ -46,7 +46,7 @@ final class ParticleTextRevealView: UIView {
         textIsHidden = hidden
         particlesNeedLayout = hidden
         label.alpha = hidden ? 0 : 1
-        if hidden, bounds.width > 0 { showParticles(animated: false) }
+        if hidden, bounds.width > 0, bounds.height > 0 { showParticles(animated: false) }
         if !hidden { removeParticles() }
     }
 
@@ -74,12 +74,12 @@ final class ParticleTextRevealView: UIView {
 
     private func showParticles(animated: Bool, origin: CGPoint? = nil) {
         removeParticles()
-        let points = glyphPoints()
-        guard !points.isEmpty else {
-            label.alpha = 1
-            textIsHidden = false
+        guard bounds.width > 0, bounds.height > 0 else {
+            particlesNeedLayout = true
             return
         }
+        let points = particlePoints()
+        guard !points.isEmpty else { return }
 
         particlesNeedLayout = false
         label.alpha = 0
@@ -160,6 +160,22 @@ final class ParticleTextRevealView: UIView {
             }
         }
         return points
+    }
+
+    private func particlePoints() -> [CGPoint] {
+        let maskPoints = glyphPoints()
+        if !maskPoints.isEmpty { return maskPoints }
+
+        // If Core Graphics cannot rasterise a font on a particular device,
+        // retain the interaction with a soft text-sized cloud rather than
+        // falling back to visible text.
+        let count = min(110, max(56, Int(bounds.width * bounds.height / 42)))
+        return (0..<count).map { _ in
+            CGPoint(
+                x: CGFloat.random(in: 4...max(4, bounds.width - 4)),
+                y: CGFloat.random(in: 3...max(3, bounds.height - 3))
+            )
+        }
     }
 
     private func makeParticle(at point: CGPoint) -> CAShapeLayer {
