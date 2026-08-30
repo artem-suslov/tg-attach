@@ -236,7 +236,7 @@ final class ChatViewController: UIViewController {
         headerContainer.addSubview(titlePill)
 
         let titleLabel = UILabel()
-        titleLabel.text = "Kate"
+        titleLabel.text = "Kate ❤️"
         titleLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = Theme.navPrimaryText
         titleLabel.textAlignment = .center
