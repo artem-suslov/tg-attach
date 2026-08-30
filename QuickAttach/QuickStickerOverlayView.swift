@@ -46,7 +46,9 @@ final class QuickStickerOverlayView: UIView {
 
         let count = CGFloat(stickers.count)
         let availableWidth = bounds.width - 16 - itemSpacing * (count - 1)
-        let itemSide = min(64, max(48, floor(availableWidth / count)))
+        // 80pt is 25% larger than the original 64pt preview, while the
+        // available-width cap still keeps every sticker on small iPhones.
+        let itemSide = min(80, max(48, floor(availableWidth / count)))
         let stripWidth = itemSide * count + itemSpacing * (count - 1)
         let x = max(8, min(sourceRect.midX - stripWidth + itemSide / 2, bounds.width - 8 - stripWidth))
         let y = max(safeAreaInsets.top + 8, sourceRect.minY - stripBottomGap - itemSide)
