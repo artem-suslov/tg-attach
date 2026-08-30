@@ -11,7 +11,7 @@ final class StickerPreviewView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
-        layer.cornerRadius = 12
+        layer.cornerRadius = 24
         layer.cornerCurve = .continuous
         layer.masksToBounds = true
         isUserInteractionEnabled = false
