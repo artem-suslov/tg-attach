@@ -18,7 +18,7 @@ final class ChatViewController: UIViewController {
 
     private var messages: [Message] = []
     private var overlay: QuickStickerOverlayView?
-    private var hasKateReactedToSticker = false
+    private var sentStickerCount = 0
 
     // MARK: - Lifecycle
 
@@ -189,11 +189,11 @@ final class ChatViewController: UIViewController {
             calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
         }
         messages = [
-            Message(content: .text("Will you be home by eight?"), isOutgoing: false, date: at(19, 41)),
-            Message(content: .text("Yeah, around then."), isOutgoing: true, date: at(19, 42)),
-            Message(content: .text("Okay, I'll order food in the meantime."), isOutgoing: false, date: at(19, 43)),
-            Message(content: .text("Just nothing spicy, please."), isOutgoing: true, date: at(19, 44)),
-            Message(content: .text("Okay, sounds good."), isOutgoing: false, date: at(19, 45)),
+            Message(content: .text("will you be home by eight?"), isOutgoing: false, date: at(19, 41)),
+            Message(content: .text("yeah, around then."), isOutgoing: true, date: at(19, 42)),
+            Message(content: .text("okay, i'll order food in the meantime."), isOutgoing: false, date: at(19, 43)),
+            Message(content: .text("just nothing spicy, please."), isOutgoing: true, date: at(19, 44)),
+            Message(content: .text("okay, sounds good."), isOutgoing: false, date: at(19, 45)),
         ]
     }
 
@@ -483,17 +483,22 @@ final class ChatViewController: UIViewController {
         let indexPath = IndexPath(row: messages.count - 1, section: 0)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
         tableView.layoutIfNeeded()
-        scheduleKateStickerReactionIfNeeded()
+        scheduleKateStickerReaction()
         return indexPath
     }
 
-    private func scheduleKateStickerReactionIfNeeded() {
-        guard !hasKateReactedToSticker else { return }
-        hasKateReactedToSticker = true
+    private func scheduleKateStickerReaction() {
+        sentStickerCount += 1
+        let reaction: String
+        switch sentStickerCount {
+        case 1: reaction = "wtf"
+        case 2: reaction = "got it"
+        default: return
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self else { return }
-            self.messages.append(Message(content: .text("wtf"), isOutgoing: false, date: Date()))
+            self.messages.append(Message(content: .text(reaction), isOutgoing: false, date: Date()))
             self.tableView.reloadData()
             self.scrollToBottom(animated: true)
         }
