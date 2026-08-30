@@ -143,9 +143,9 @@ final class ParticleTextRevealView: UIView {
         guard let bytes, bytesPerPixel >= 4 else { return [] }
 
         var points: [CGPoint] = []
-        let stride = max(2, Int(size.height / 15))
-        for y in stride(from: 0, to: cgImage.height, by: stride) {
-            for x in stride(from: 0, to: cgImage.width, by: stride) {
+        let sampleStep = max(2, Int(size.height / 15))
+        for y in stride(from: 0, to: cgImage.height, by: sampleStep) {
+            for x in stride(from: 0, to: cgImage.width, by: sampleStep) {
                 let offset = y * bytesPerRow + x * bytesPerPixel
                 let alpha = bytes[offset + 3]
                 guard alpha > 80, Int.random(in: 0...2) != 0 else { continue }

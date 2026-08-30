@@ -41,7 +41,7 @@ final class StickerPreviewView: UIView {
         case let .image(name):
             imageView.image = UIImage(named: name)
             imageView.isHidden = false
-        case let .video(resource, fileExtension):
+        case let .video(resource, fileExtension, _):
             imageView.image = nil
             imageView.isHidden = true
             guard let url = Bundle.main.url(forResource: resource, withExtension: fileExtension) else { return }

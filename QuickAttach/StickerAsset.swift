@@ -1,9 +1,8 @@
-import AVFoundation
 import UIKit
 
 enum StickerAsset {
     case image(name: String)
-    case video(resource: String, fileExtension: String)
+    case video(resource: String, fileExtension: String, aspectRatio: CGFloat)
 
     var staticImage: UIImage? {
         guard case let .image(name) = self else { return nil }
@@ -17,15 +16,8 @@ enum StickerAsset {
         case let .image(name):
             guard let image = UIImage(named: name), image.size.height > 0 else { return 1 }
             return image.size.width / image.size.height
-        case let .video(resource, fileExtension):
-            guard let url = Bundle.main.url(forResource: resource, withExtension: fileExtension),
-                  let track = AVURLAsset(url: url).tracks(withMediaType: .video).first else {
-                return 1
-            }
-            let transformedSize = track.naturalSize.applying(track.preferredTransform)
-            let width = abs(transformedSize.width)
-            let height = abs(transformedSize.height)
-            return height > 0 ? width / height : 1
+        case let .video(_, _, aspectRatio):
+            return aspectRatio
         }
     }
 }
