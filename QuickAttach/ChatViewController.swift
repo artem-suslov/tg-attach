@@ -232,7 +232,7 @@ final class ChatViewController: UIViewController {
         headerContainer.addSubview(titlePill)
 
         let titleLabel = UILabel()
-        titleLabel.text = "Ksusha"
+        titleLabel.text = "Kate"
         titleLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = Theme.navPrimaryText
         titleLabel.textAlignment = .center
@@ -279,7 +279,7 @@ final class ChatViewController: UIViewController {
 
         // Real peer photo on top of the placeholder (AvatarNode keeps the
         // gradient underneath and fades the image in over it).
-        let avatarPhoto = UIImageView(image: UIImage(named: "KsushaAvatar"))
+        let avatarPhoto = UIImageView(image: UIImage(named: "KateAvatar"))
         avatarPhoto.contentMode = .scaleAspectFill
         avatarPhoto.clipsToBounds = true
         avatarPhoto.translatesAutoresizingMaskIntoConstraints = false
