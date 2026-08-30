@@ -43,7 +43,7 @@ final class QuickStickerOverlayView: UIView {
         let itemSide = min(64, max(48, floor(availableWidth / count)))
         let stripWidth = itemSide * count + itemSpacing * (count - 1)
         let x = max(8, min(sourceRect.midX - stripWidth + itemSide / 2, bounds.width - 8 - stripWidth))
-        let y = max(bounds.safeAreaInsets.top + 8, sourceRect.minY - stripBottomGap - itemSide)
+        let y = max(safeAreaInsets.top + 8, sourceRect.minY - stripBottomGap - itemSide)
         itemFrames = stickers.indices.map {
             CGRect(x: x + CGFloat($0) * (itemSide + itemSpacing), y: y, width: itemSide, height: itemSide)
         }
@@ -112,7 +112,7 @@ final class QuickStickerOverlayView: UIView {
 
         if let selectedIndex, let targetRect, itemViews.indices.contains(selectedIndex) {
             for (index, view) in itemViews.enumerated() where index != selectedIndex {
-                UIView.animate(withDuration: 0.12, options: .curveEaseOut) {
+                UIView.animate(withDuration: 0.12, delay: 0, options: .curveEaseOut) {
                     view.alpha = 0
                     view.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
                 }
