@@ -87,14 +87,25 @@ final class ParticleTextRevealView: UIView {
             let layer = makeParticle(at: animated ? scatteredPoint(from: point, origin: origin) : point)
             self.layer.addSublayer(layer)
             particleLayers.append(layer)
-            guard animated else { continue }
-            let animation = CABasicAnimation(keyPath: "position")
-            animation.fromValue = layer.position
-            animation.toValue = point
-            animation.duration = 0.26
-            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            layer.position = point
-            layer.add(animation, forKey: "assemble")
+            if animated {
+                let animation = CABasicAnimation(keyPath: "position")
+                animation.fromValue = layer.position
+                animation.toValue = point
+                animation.duration = 0.26
+                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                layer.position = point
+                layer.add(animation, forKey: "assemble")
+            } else {
+                startDrifting(layer)
+            }
+        }
+
+        if animated {
+            let layers = particleLayers
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.27) { [weak self] in
+                guard self?.textIsHidden == true else { return }
+                layers.forEach { self?.startDrifting($0) }
+            }
         }
     }
 
@@ -103,6 +114,7 @@ final class ParticleTextRevealView: UIView {
             self.label.alpha = 1
         }
         for layer in particleLayers {
+            layer.removeAnimation(forKey: "drift")
             let destination = scatteredPoint(from: layer.position, origin: origin)
             let position = CABasicAnimation(keyPath: "position")
             position.fromValue = layer.position
@@ -185,6 +197,21 @@ final class ParticleTextRevealView: UIView {
         layer.fillColor = (label.textColor ?? Theme.incomingText).withAlphaComponent(CGFloat.random(in: 0.45...0.9)).cgColor
         layer.position = point
         return layer
+    }
+
+    private func startDrifting(_ layer: CAShapeLayer) {
+        let origin = layer.position
+        let drift = CAKeyframeAnimation(keyPath: "position")
+        drift.values = [
+            origin,
+            CGPoint(x: origin.x + CGFloat.random(in: -3...3), y: origin.y + CGFloat.random(in: -2...2)),
+            CGPoint(x: origin.x + CGFloat.random(in: -3...3), y: origin.y + CGFloat.random(in: -2...2)),
+            origin,
+        ]
+        drift.duration = CFTimeInterval.random(in: 0.9...1.7)
+        drift.repeatCount = .infinity
+        drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(drift, forKey: "drift")
     }
 
     private func scatteredPoint(from point: CGPoint, origin: CGPoint?) -> CGPoint {
