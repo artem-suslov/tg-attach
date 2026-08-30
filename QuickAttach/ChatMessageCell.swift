@@ -136,6 +136,7 @@ final class TextMessageCell: UITableViewCell {
             neighbors: neighbors
         )
         messageLabel.textColor = outgoing ? Theme.outgoingText : Theme.incomingText
+        messageLabel.alpha = usesParticles ? 0 : 1
         particleTextView.configure(
             text: text,
             font: messageLabel.font,

@@ -126,7 +126,10 @@ final class ParticleTextRevealView: UIView {
     private func glyphPoints() -> [CGPoint] {
         let size = bounds.integral.size
         guard size.width > 0, size.height > 0 else { return [] }
-        let renderer = UIGraphicsImageRenderer(size: size)
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let image = renderer.image { _ in
             let proxy = UILabel(frame: CGRect(origin: .zero, size: size))
             proxy.numberOfLines = label.numberOfLines
