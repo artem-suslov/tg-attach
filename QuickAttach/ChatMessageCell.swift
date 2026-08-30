@@ -371,7 +371,7 @@ final class PhotoMessageCell: UITableViewCell {
 final class StickerMessageCell: UITableViewCell {
     static let reuseIdentifier = "StickerMessageCell"
 
-    private let stickerView = StickerPreviewView()
+    private let stickerView = StickerPreviewView(cornerRadius: 20)
     private let timeBadge = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
     private let timeLabel = UILabel()
     private let checkBack = UIImageView()

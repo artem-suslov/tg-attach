@@ -8,10 +8,10 @@ final class StickerPreviewView: UIView {
     private var looper: AVPlayerLooper?
     private var playerLayer: AVPlayerLayer?
 
-    override init(frame: CGRect) {
+    init(cornerRadius: CGFloat = 0, frame: CGRect = .zero) {
         super.init(frame: frame)
+        setCornerRadius(cornerRadius)
         clipsToBounds = true
-        layer.cornerRadius = 24
         layer.cornerCurve = .continuous
         layer.masksToBounds = true
         isUserInteractionEnabled = false
@@ -24,6 +24,11 @@ final class StickerPreviewView: UIView {
             imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
             imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+    }
+
+    func setCornerRadius(_ cornerRadius: CGFloat) {
+        layer.cornerRadius = cornerRadius
+        playerLayer?.cornerRadius = cornerRadius
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
