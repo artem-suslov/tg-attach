@@ -505,8 +505,16 @@ final class ChatViewController: UIViewController {
             guard let self else { return }
             self.messages.append(Message(content: .text(reaction), isOutgoing: false, date: Date()))
             let indexPath = IndexPath(row: self.messages.count - 1, section: 0)
-            self.tableView.insertRows(at: [indexPath], with: .automatic)
-            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+            self.tableView.insertRows(at: [indexPath], with: .none)
+            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
+            self.tableView.layoutIfNeeded()
+            guard let cell = self.tableView.cellForRow(at: indexPath) else { return }
+            cell.alpha = 0
+            cell.transform = CGAffineTransform(translationX: 0, y: 12)
+            UIView.animate(withDuration: 0.24, delay: 0, options: .curveEaseOut) {
+                cell.alpha = 1
+                cell.transform = .identity
+            }
         }
     }
 

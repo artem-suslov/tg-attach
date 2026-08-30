@@ -125,8 +125,12 @@ final class QuickStickerOverlayView: UIView {
             }
             let selected = itemViews[selectedIndex]
             bringSubviewToFront(selected)
-            animateSelectedSticker(selected, to: targetRect) { [weak self] in
-                self?.removeFromSuperview()
+            UIView.animate(withDuration: 0.30, delay: 0, usingSpringWithDamping: 0.82, initialSpringVelocity: 0.35) {
+                selected.transform = .identity
+                selected.frame = targetRect
+                selected.layer.shadowOpacity = 0
+            } completion: { _ in
+                self.removeFromSuperview()
                 completion()
             }
             return
@@ -172,51 +176,9 @@ final class QuickStickerOverlayView: UIView {
 
     private func bakePresentationState(into view: UIView) {
         guard let presentation = view.layer.presentation() else { return }
-        let visualFrame = presentation.frame
+        let scale = (presentation.value(forKeyPath: "transform.scale.x") as? CGFloat) ?? 1
         view.layer.removeAllAnimations()
-        view.transform = .identity
-        view.layer.position = CGPoint(x: visualFrame.midX, y: visualFrame.midY)
-        view.layer.bounds = CGRect(origin: .zero, size: visualFrame.size)
-    }
-
-    /// Mirrors Telegram's ChatMessageTransitionNode sticker transition: both
-    /// axes are additive but use different curves, avoiding a single vertical
-    /// spring that reads as the sticker simply dropping through the chat.
-    private func animateSelectedSticker(_ view: UIView, to targetRect: CGRect, completion: @escaping () -> Void) {
-        let sourcePosition = view.layer.position
-        let sourceBounds = view.layer.bounds
-        let targetPosition = CGPoint(x: targetRect.midX, y: targetRect.midY)
-        let targetBounds = CGRect(origin: .zero, size: targetRect.size)
-        let duration: CFTimeInterval = 0.30
-
-        view.transform = .identity
-        view.layer.position = targetPosition
-        view.layer.bounds = targetBounds
-        view.layer.shadowOpacity = 0
-
-        let horizontal = CABasicAnimation(keyPath: "position.x")
-        horizontal.fromValue = sourcePosition.x
-        horizontal.toValue = targetPosition.x
-        horizontal.duration = duration
-        horizontal.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1.0, 0.32, 1.0)
-
-        let vertical = CABasicAnimation(keyPath: "position.y")
-        vertical.fromValue = sourcePosition.y
-        vertical.toValue = targetPosition.y
-        vertical.duration = duration
-        vertical.timingFunction = CAMediaTimingFunction(controlPoints: 0.19919473, 0.01064453, 0.27920937, 0.91025391)
-
-        let bounds = CABasicAnimation(keyPath: "bounds")
-        bounds.fromValue = NSValue(cgRect: sourceBounds)
-        bounds.toValue = NSValue(cgRect: targetBounds)
-        bounds.duration = duration
-        bounds.timingFunction = vertical.timingFunction
-
-        CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
-        view.layer.add(horizontal, forKey: "sendStickerX")
-        view.layer.add(vertical, forKey: "sendStickerY")
-        view.layer.add(bounds, forKey: "sendStickerBounds")
-        CATransaction.commit()
+        view.layer.position = presentation.position
+        view.transform = CGAffineTransform(scaleX: scale, y: scale)
     }
 }
