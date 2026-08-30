@@ -9,7 +9,7 @@ focused interaction: **quick stickers on a long press**.
 Sending a sticker should be as immediate as reacting with one: press, slide,
 release.
 
-Here you press and hold the sticker button, six local demo stickers fan out of
+Here you press and hold the sticker button, four local demo stickers fan out of
 it, you slide onto one and let go. The selected sticker flies directly into a
 new outgoing message. Release anywhere else and everything folds back.
 
@@ -33,7 +33,7 @@ parameters and the card leaves along the path it arrived on. Numbers live in
 ## Run
 
 Open `QuickAttach.xcodeproj`, pick an iPhone simulator, Run, and hold the
-sticker icon in the composer. The six bundled stickers work identically on a
+sticker icon in the composer. The four bundled stickers work identically on a
 simulator and a real device; the app asks for no media permissions.
 
 ---

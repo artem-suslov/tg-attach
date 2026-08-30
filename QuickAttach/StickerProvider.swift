@@ -4,6 +4,6 @@ import UIKit
 /// or camera access, so the gesture remains deterministic on device and simulator.
 enum StickerProvider {
     static let recentStickers: [UIImage] = [
-        "StickerCat", "StickerFlower", "StickerSun", "StickerTea", "StickerJelly", "StickerCloud",
+        "StickerCustom01", "StickerCustom02", "StickerCustom03", "StickerCustom04",
     ].compactMap(UIImage.init(named:))
 }
