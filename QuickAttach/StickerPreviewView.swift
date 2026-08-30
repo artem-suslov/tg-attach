@@ -53,6 +53,10 @@ final class StickerPreviewView: UIView {
             // Clip both layers so the chat wallpaper shows through instead.
             playerLayer.cornerRadius = layer.cornerRadius
             playerLayer.masksToBounds = true
+            // A reused table cell may already have completed its layout pass.
+            // Give the new layer its current bounds immediately rather than
+            // waiting for another layoutSubviews call.
+            playerLayer.frame = bounds
             layer.insertSublayer(playerLayer, at: 0)
             self.player = player
             self.looper = AVPlayerLooper(player: player, templateItem: item)
