@@ -4,7 +4,7 @@ enum StickerProvider {
     static let recentStickers: [StickerAsset] = [
         .image(name: "StickerCustom01"),
         .image(name: "StickerCustom02"),
-        .image(name: "StickerCustom03"),
+        .video(resource: "XuanSol", fileExtension: "mp4"),
         .video(resource: "BomjaraMood", fileExtension: "mp4"),
     ]
 }
