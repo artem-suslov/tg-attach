@@ -5,7 +5,6 @@ import UIKit
 /// naturally instead of travelling in a straight line.
 final class QuickStickerOverlayView: UIView {
     var onTap: ((CGPoint) -> Void)?
-    private let blurView = UIVisualEffectView(effect: nil)
     private let dimView = UIView()
     private var itemViews: [UIImageView] = []
     private var itemFrames: [CGRect] = []
@@ -21,12 +20,11 @@ final class QuickStickerOverlayView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         isUserInteractionEnabled = true
-        blurView.frame = bounds
-        blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        addSubview(blurView)
         dimView.frame = bounds
         dimView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        dimView.backgroundColor = UIColor(white: 1, alpha: 0.12)
+        // Keep the conversation readable: the fan needs just enough contrast,
+        // not a modal blur that hides the chat context.
+        dimView.backgroundColor = UIColor(white: 0, alpha: 0.04)
         dimView.alpha = 0
         addSubview(dimView)
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
@@ -68,7 +66,6 @@ final class QuickStickerOverlayView: UIView {
         }
 
         UIView.animate(withDuration: 0.12) {
-            self.blurView.effect = UIBlurEffect(style: .systemUltraThinMaterialLight)
             self.dimView.alpha = 1
         }
 
@@ -114,7 +111,6 @@ final class QuickStickerOverlayView: UIView {
     func dismiss(selectedIndex: Int?, targetRect: CGRect?, completion: @escaping () -> Void) {
         for view in itemViews { bakePresentationState(into: view) }
         UIView.animate(withDuration: 0.18) {
-            self.blurView.effect = nil
             self.dimView.alpha = 0
         }
 
