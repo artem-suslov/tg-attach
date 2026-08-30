@@ -306,7 +306,7 @@ final class PhotoMessageCell: UITableViewCell {
     func configure(with message: Message, isFirstInGroup: Bool, isLastInGroup: Bool) {
         // Retained only as an unused legacy renderer while the fork preserves
         // its original source layout; the active data source never registers it.
-        guard case let .sticker(image) = message.content else { return }
+        guard case let .sticker(asset) = message.content, let image = asset.staticImage else { return }
         let caption: String? = nil
         photoView.image = image
         timeLabel.text = message.timeString
@@ -371,7 +371,7 @@ final class PhotoMessageCell: UITableViewCell {
 final class StickerMessageCell: UITableViewCell {
     static let reuseIdentifier = "StickerMessageCell"
 
-    private let stickerView = UIImageView()
+    private let stickerView = StickerPreviewView()
     private let timeBadge = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
     private let timeLabel = UILabel()
     private let checkBack = UIImageView()
@@ -382,7 +382,6 @@ final class StickerMessageCell: UITableViewCell {
         selectionStyle = .none
         backgroundColor = .clear
 
-        stickerView.contentMode = .scaleAspectFit
         stickerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(stickerView)
 
@@ -423,8 +422,8 @@ final class StickerMessageCell: UITableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func configure(with message: Message) {
-        guard case let .sticker(image) = message.content else { return }
-        stickerView.image = image
+        guard case let .sticker(asset) = message.content else { return }
+        stickerView.configure(with: asset)
         timeLabel.text = message.timeString
     }
 

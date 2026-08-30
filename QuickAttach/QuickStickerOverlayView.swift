@@ -6,7 +6,7 @@ import UIKit
 final class QuickStickerOverlayView: UIView {
     var onTap: ((CGPoint) -> Void)?
     private let dimView = UIView()
-    private var itemViews: [UIImageView] = []
+    private var itemViews: [StickerPreviewView] = []
     private var itemFrames: [CGRect] = []
     private var sourceRect: CGRect = .zero
     private var highlightedIndex: Int?
@@ -38,7 +38,7 @@ final class QuickStickerOverlayView: UIView {
         onTap?(recognizer.location(in: self))
     }
 
-    func present(stickers: [UIImage], from sourceRect: CGRect) {
+    func present(stickers: [StickerAsset], from sourceRect: CGRect) {
         guard !stickers.isEmpty else { return }
         self.sourceRect = sourceRect
         impactHaptic.impactOccurred()
@@ -56,9 +56,9 @@ final class QuickStickerOverlayView: UIView {
             CGRect(x: x + CGFloat($0) * (itemSide + itemSpacing), y: y, width: itemSide, height: itemSide)
         }
 
-        itemViews = zip(stickers, itemFrames).map { image, frame in
-            let view = UIImageView(image: image)
-            view.contentMode = .scaleAspectFit
+        itemViews = zip(stickers, itemFrames).map { sticker, frame in
+            let view = StickerPreviewView()
+            view.configure(with: sticker)
             view.frame = frame
             view.alpha = 0
             view.layer.cornerRadius = itemSide / 2

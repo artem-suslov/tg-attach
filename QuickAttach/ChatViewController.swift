@@ -476,7 +476,7 @@ final class ChatViewController: UIViewController {
     // MARK: - Sending
 
     @discardableResult
-    private func appendSticker(_ sticker: UIImage) -> IndexPath {
+    private func appendSticker(_ sticker: StickerAsset) -> IndexPath {
         messages.append(Message(content: .sticker(sticker), isOutgoing: true, date: Date()))
         tableView.reloadData()
         let indexPath = IndexPath(row: messages.count - 1, section: 0)
