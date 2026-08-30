@@ -8,9 +8,12 @@ final class StickerPreviewView: UIView {
     private var looper: AVPlayerLooper?
     private var playerLayer: AVPlayerLayer?
     private var playerClipMask: CAShapeLayer?
+    private let contentClipMask = CAShapeLayer()
 
     init(cornerRadius: CGFloat = 0, frame: CGRect = .zero) {
         super.init(frame: frame)
+        contentClipMask.fillColor = UIColor.black.cgColor
+        layer.mask = contentClipMask
         setCornerRadius(cornerRadius)
         clipsToBounds = true
         layer.cornerCurve = .continuous
@@ -30,6 +33,7 @@ final class StickerPreviewView: UIView {
     func setCornerRadius(_ cornerRadius: CGFloat) {
         layer.cornerRadius = cornerRadius
         playerLayer?.cornerRadius = cornerRadius
+        updateContentClipMask()
         updatePlayerClipMask()
     }
 
@@ -75,6 +79,7 @@ final class StickerPreviewView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer?.frame = bounds
+        updateContentClipMask()
         updatePlayerClipMask()
     }
 
@@ -96,6 +101,14 @@ final class StickerPreviewView: UIView {
         playerClipMask.frame = clipBounds
         playerClipMask.path = UIBezierPath(
             roundedRect: clipBounds,
+            cornerRadius: layer.cornerRadius
+        ).cgPath
+    }
+
+    private func updateContentClipMask() {
+        contentClipMask.frame = bounds
+        contentClipMask.path = UIBezierPath(
+            roundedRect: bounds,
             cornerRadius: layer.cornerRadius
         ).cgPath
     }
