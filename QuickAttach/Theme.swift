@@ -30,9 +30,9 @@ enum Theme {
     static let checkmark = rgb(0x19C700)                    // :737
     static let mediaTimePillFill = UIColor(white: 0.0, alpha: 0.3) // :738
     static let mediaTimeText = rgb(0xFFFFFF)                // :739
-    /// Default wallpaper colors, Telegram order (:1109-1114); paired with
+    /// Telegram's "Pink with Blue" day-classic wallpaper preset, paired with
     /// SoftwareGradientBackground anchor positions in ChatViewController.
     static let wallpaperColors: [UIColor] = [
-        rgb(0xDBDDBB), rgb(0x6BA587), rgb(0xD5D88D), rgb(0x88B884),
+        rgb(0x8DC0EB), rgb(0xB9D1EA), rgb(0xC6B1EF), rgb(0xEBD7EF),
     ]
 }
