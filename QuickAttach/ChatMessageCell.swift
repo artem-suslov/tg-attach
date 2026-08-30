@@ -376,11 +376,16 @@ final class StickerMessageCell: UITableViewCell {
     private let timeLabel = UILabel()
     private let checkBack = UIImageView()
     private let checkFront = UIImageView()
+    private var stickerWidth: NSLayoutConstraint!
+    private var stickerHeight: NSLayoutConstraint!
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         selectionStyle = .none
         backgroundColor = .clear
+
+        stickerWidth = stickerView.widthAnchor.constraint(equalToConstant: 132)
+        stickerHeight = stickerView.heightAnchor.constraint(equalToConstant: 132)
 
         stickerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(stickerView)
@@ -404,8 +409,8 @@ final class StickerMessageCell: UITableViewCell {
             stickerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
             stickerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 3),
             stickerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -3),
-            stickerView.widthAnchor.constraint(equalToConstant: 132),
-            stickerView.heightAnchor.constraint(equalToConstant: 132),
+            stickerWidth,
+            stickerHeight,
             timeBadge.trailingAnchor.constraint(equalTo: stickerView.trailingAnchor, constant: -2),
             timeBadge.bottomAnchor.constraint(equalTo: stickerView.bottomAnchor, constant: -5),
             timeBadge.heightAnchor.constraint(equalToConstant: 18),
@@ -423,6 +428,15 @@ final class StickerMessageCell: UITableViewCell {
 
     func configure(with message: Message) {
         guard case let .sticker(asset) = message.content else { return }
+        let maximumSide: CGFloat = 132
+        let aspectRatio = max(0.1, asset.aspectRatio)
+        if aspectRatio >= 1 {
+            stickerWidth.constant = maximumSide
+            stickerHeight.constant = maximumSide / aspectRatio
+        } else {
+            stickerWidth.constant = maximumSide * aspectRatio
+            stickerHeight.constant = maximumSide
+        }
         stickerView.configure(with: asset)
         timeLabel.text = message.timeString
     }
