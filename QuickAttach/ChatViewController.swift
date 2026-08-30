@@ -396,7 +396,18 @@ final class ChatViewController: UIViewController {
         longPress.minimumPressDuration = 0.15
         longPress.allowableMovement = 24
         inputPanel.stickerButton.addGestureRecognizer(longPress)
+#if targetEnvironment(simulator)
+        // A normal mouse click is more reliable than click-and-drag in the
+        // Simulator. The device path still uses the long press above.
+        inputPanel.stickerButton.addTarget(self, action: #selector(openSimulatorStickerFan), for: .touchUpInside)
+#endif
     }
+
+#if targetEnvironment(simulator)
+    @objc private func openSimulatorStickerFan() {
+        presentQuickStickers()
+    }
+#endif
 
     @objc private func handleStickerLongPress(_ gesture: UILongPressGestureRecognizer) {
         switch gesture.state {
@@ -422,6 +433,9 @@ final class ChatViewController: UIViewController {
         overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(overlay)
         self.overlay = overlay
+        overlay.onTap = { [weak self] location in
+            self?.finishQuickStickers(location: location)
+        }
         let sourceRect = inputPanel.stickerButton.convert(inputPanel.stickerButton.bounds, to: view)
         overlay.present(stickers: stickers, from: sourceRect)
     }

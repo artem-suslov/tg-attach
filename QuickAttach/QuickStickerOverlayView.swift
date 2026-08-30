@@ -4,6 +4,7 @@ import UIKit
 /// launched from the sticker icon on independent X/Y springs so their path bends
 /// naturally instead of travelling in a straight line.
 final class QuickStickerOverlayView: UIView {
+    var onTap: ((CGPoint) -> Void)?
     private let blurView = UIVisualEffectView(effect: nil)
     private let dimView = UIView()
     private var itemViews: [UIImageView] = []
@@ -19,7 +20,7 @@ final class QuickStickerOverlayView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        isUserInteractionEnabled = false
+        isUserInteractionEnabled = true
         blurView.frame = bounds
         blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         addSubview(blurView)
@@ -28,9 +29,16 @@ final class QuickStickerOverlayView: UIView {
         dimView.backgroundColor = UIColor(white: 1, alpha: 0.12)
         dimView.alpha = 0
         addSubview(dimView)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        addGestureRecognizer(tap)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended else { return }
+        onTap?(recognizer.location(in: self))
+    }
 
     func present(stickers: [UIImage], from sourceRect: CGRect) {
         guard !stickers.isEmpty else { return }
