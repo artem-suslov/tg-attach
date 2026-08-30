@@ -304,7 +304,10 @@ final class PhotoMessageCell: UITableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func configure(with message: Message, isFirstInGroup: Bool, isLastInGroup: Bool) {
-        guard case let .photo(image, caption) = message.content else { return }
+        // Retained only as an unused legacy renderer while the fork preserves
+        // its original source layout; the active data source never registers it.
+        guard case let .sticker(image) = message.content else { return }
+        let caption: String? = nil
         photoView.image = image
         timeLabel.text = message.timeString
         captionLabel.text = caption
@@ -360,5 +363,72 @@ final class PhotoMessageCell: UITableViewCell {
             bodyTrailing.isActive = false
             bodyLeading.isActive = true
         }
+    }
+}
+
+/// A sticker has no coloured chat bubble: its transparent artwork sits directly
+/// on the wallpaper, with a small delivery-time pill in the lower corner.
+final class StickerMessageCell: UITableViewCell {
+    static let reuseIdentifier = "StickerMessageCell"
+
+    private let stickerView = UIImageView()
+    private let timeBadge = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
+    private let timeLabel = UILabel()
+    private let checkBack = UIImageView()
+    private let checkFront = UIImageView()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .none
+        backgroundColor = .clear
+
+        stickerView.contentMode = .scaleAspectFit
+        stickerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stickerView)
+
+        timeBadge.layer.cornerRadius = 9
+        timeBadge.clipsToBounds = true
+        timeBadge.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(timeBadge)
+        timeLabel.font = .systemFont(ofSize: 11)
+        timeLabel.textColor = .white
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeBadge.contentView.addSubview(timeLabel)
+        checkBack.image = TelegramGraphics.checkImage(partial: false, color: .white)
+        checkFront.image = TelegramGraphics.checkImage(partial: true, color: .white)
+        for check in [checkBack, checkFront] {
+            check.translatesAutoresizingMaskIntoConstraints = false
+            timeBadge.contentView.addSubview(check)
+        }
+
+        NSLayoutConstraint.activate([
+            stickerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
+            stickerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 3),
+            stickerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -3),
+            stickerView.widthAnchor.constraint(equalToConstant: 132),
+            stickerView.heightAnchor.constraint(equalToConstant: 132),
+            timeBadge.trailingAnchor.constraint(equalTo: stickerView.trailingAnchor, constant: -2),
+            timeBadge.bottomAnchor.constraint(equalTo: stickerView.bottomAnchor, constant: -5),
+            timeBadge.heightAnchor.constraint(equalToConstant: 18),
+            timeLabel.leadingAnchor.constraint(equalTo: timeBadge.contentView.leadingAnchor, constant: 7),
+            timeLabel.centerYAnchor.constraint(equalTo: timeBadge.contentView.centerYAnchor),
+            checkFront.trailingAnchor.constraint(equalTo: timeBadge.contentView.trailingAnchor, constant: -2),
+            checkFront.centerYAnchor.constraint(equalTo: timeLabel.centerYAnchor),
+            checkBack.trailingAnchor.constraint(equalTo: timeBadge.contentView.trailingAnchor, constant: -8),
+            checkBack.centerYAnchor.constraint(equalTo: timeLabel.centerYAnchor),
+            timeLabel.trailingAnchor.constraint(equalTo: checkBack.leadingAnchor, constant: -2),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func configure(with message: Message) {
+        guard case let .sticker(image) = message.content else { return }
+        stickerView.image = image
+        timeLabel.text = message.timeString
+    }
+
+    func stickerFrame(in view: UIView) -> CGRect {
+        stickerView.convert(stickerView.bounds, to: view)
     }
 }

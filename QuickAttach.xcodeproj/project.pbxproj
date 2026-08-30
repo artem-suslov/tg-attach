@@ -183,8 +183,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Камера нужна для быстрого атача.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Доступ к фото нужен для быстрого прикрепления последних снимков по долгому нажатию на «+».";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -210,8 +208,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Камера нужна для быстрого атача.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Доступ к фото нужен для быстрого прикрепления последних снимков по долгому нажатию на «+».";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

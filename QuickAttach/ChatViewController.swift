@@ -3,7 +3,7 @@ import UIKit
 /// Telegram chat screen reproduced from Telegram-iOS (HEAD 6ad963e):
 /// software-gradient wallpaper with the official doodle pattern, glass
 /// navigation capsules (NavigationBarImpl metrics), glass composer, and the
-/// demo's quick-attach long-press gesture on the attach button.
+/// demo's quick-sticker long-press gesture on the sticker accessory.
 final class ChatViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
@@ -17,7 +17,7 @@ final class ChatViewController: UIViewController {
     private let topEdgeMask = CAGradientLayer()
 
     private var messages: [Message] = []
-    private var overlay: QuickAttachOverlayView?
+    private var overlay: QuickStickerOverlayView?
 
     // MARK: - Lifecycle
 
@@ -30,9 +30,7 @@ final class ChatViewController: UIViewController {
         setupInputPanel()
         setupTopEdgeEffect()
         setupHeader()
-        setupQuickAttachGesture()
-
-        RecentPhotosProvider.shared.prefetch(count: 30, itemSide: 200)
+        setupQuickStickerGesture()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -192,8 +190,8 @@ final class ChatViewController: UIViewController {
         messages = [
             Message(content: .text("Hey! Are you home yet?"), isOutgoing: false, date: at(9, 41)),
             Message(content: .text("Yep, just walked in 🙌"), isOutgoing: true, date: at(9, 42)),
-            Message(content: .text("Send me the photos from the walk before you forget"), isOutgoing: false, date: at(9, 43)),
-            Message(content: .text("Sure! Btw, try holding the paperclip —\nnew quick attach 😉"), isOutgoing: true, date: at(9, 44)),
+            Message(content: .text("Send me something cheerful before you forget"), isOutgoing: false, date: at(9, 43)),
+            Message(content: .text("Try holding the sticker button —\nquick stickers 😉"), isOutgoing: true, date: at(9, 44)),
         ]
     }
 
@@ -366,7 +364,7 @@ final class ChatViewController: UIViewController {
         tableView.contentInset = UIEdgeInsets(top: 60, left: 0, bottom: 65, right: 0)
         tableView.verticalScrollIndicatorInsets.top = 60
         tableView.register(TextMessageCell.self, forCellReuseIdentifier: TextMessageCell.reuseIdentifier)
-        tableView.register(PhotoMessageCell.self, forCellReuseIdentifier: PhotoMessageCell.reuseIdentifier)
+        tableView.register(StickerMessageCell.self, forCellReuseIdentifier: StickerMessageCell.reuseIdentifier)
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
     }
@@ -375,8 +373,8 @@ final class ChatViewController: UIViewController {
         inputPanel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(inputPanel)
 
-        inputPanel.onSend = { [weak self] text, image in
-            self?.sendMessage(text: text, image: image)
+        inputPanel.onSend = { [weak self] text in
+            self?.sendTextMessage(text)
         }
 
         NSLayoutConstraint.activate([
@@ -391,111 +389,86 @@ final class ChatViewController: UIViewController {
         ])
     }
 
-    // MARK: - Quick attach gesture
+    // MARK: - Quick sticker gesture
 
-    private func setupQuickAttachGesture() {
-        // In real Telegram-iOS this is a ContextGesture on attachmentButton
-        // (same pattern as sendButtonLongPressed). Here: UILongPressGestureRecognizer.
-        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleAttachLongPress(_:)))
-        // Nothing else responds to a plain tap on the paperclip, so the press
-        // does not have to wait out a tap: 0.15s reads as immediate.
+    private func setupQuickStickerGesture() {
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleStickerLongPress(_:)))
         longPress.minimumPressDuration = 0.15
-        inputPanel.attachButton.addGestureRecognizer(longPress)
-        // Warm the camera on touch-down: the session has the press duration
-        // plus the fan's flight to spin up, so the tile is live on arrival.
-        inputPanel.attachButton.addTarget(self, action: #selector(attachTouchDown), for: .touchDown)
+        longPress.allowableMovement = 24
+        inputPanel.stickerButton.addGestureRecognizer(longPress)
     }
 
-    @objc private func attachTouchDown() {
-        CameraStripItemView.shared.warmUp()
-    }
-
-    @objc private func handleAttachLongPress(_ gesture: UILongPressGestureRecognizer) {
+    @objc private func handleStickerLongPress(_ gesture: UILongPressGestureRecognizer) {
         switch gesture.state {
         case .began:
-            presentQuickAttach()
+            presentQuickStickers()
         case .changed:
             overlay?.updateTracking(location: gesture.location(in: view))
         case .ended:
-            finishQuickAttach(location: gesture.location(in: view))
+            finishQuickStickers(location: gesture.location(in: view))
         case .cancelled, .failed:
-            cancelQuickAttach()
+            cancelQuickStickers()
         default:
             break
         }
     }
 
-    private func presentQuickAttach() {
+    private func presentQuickStickers() {
         guard overlay == nil else { return }
         view.endEditing(false)
-
-        let overlay = QuickAttachOverlayView(frame: view.bounds)
+        let stickers = StickerProvider.recentStickers
+        guard !stickers.isEmpty else { return }
+        let overlay = QuickStickerOverlayView(frame: view.bounds)
         overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(overlay)
         self.overlay = overlay
-
-        // Hide the real attach button while its "×" replacement is shown by the overlay.
-        let sourceRect = inputPanel.attachButton.convert(inputPanel.attachButton.bounds, to: view)
-        inputPanel.attachButton.alpha = 0.0
-
-        // Strip = 4 items: the live camera + the 3 most recent photos.
-        overlay.present(images: Array(RecentPhotosProvider.shared.cachedThumbnails.prefix(3)), from: sourceRect)
+        let sourceRect = inputPanel.stickerButton.convert(inputPanel.stickerButton.bounds, to: view)
+        overlay.present(stickers: stickers, from: sourceRect)
     }
 
-    private func finishQuickAttach(location: CGPoint) {
+    private func finishQuickStickers(location: CGPoint) {
         guard let overlay else { return }
-        let selectedIndex = overlay.finishTracking(location: location)
-
-        if let selectedIndex {
-            // Item 0 is the camera tile — no photo to attach in the demo.
-            guard selectedIndex > 0 else {
-                cancelQuickAttach()
-                return
-            }
-            let thumbnails = Array(RecentPhotosProvider.shared.cachedThumbnails.prefix(3))
-            guard selectedIndex - 1 < thumbnails.count else {
-                cancelQuickAttach()
-                return
-            }
-            let image = thumbnails[selectedIndex - 1]
-            let targetRect = inputPanel.prepareAttachmentSlot(in: view, image: image)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            overlay.dismiss(selectedIndex: selectedIndex, targetRect: targetRect) { [weak self] in
-                guard let self else { return }
-                self.overlay = nil
-                self.inputPanel.attachButton.alpha = 1.0
-                self.inputPanel.revealAttachment(image)
-            }
-        } else {
-            cancelQuickAttach()
+        guard let selectedIndex = overlay.finishTracking(location: location),
+              StickerProvider.recentStickers.indices.contains(selectedIndex) else {
+            cancelQuickStickers()
+            return
+        }
+        let sticker = StickerProvider.recentStickers[selectedIndex]
+        let indexPath = appendSticker(sticker)
+        guard let cell = tableView.cellForRow(at: indexPath) as? StickerMessageCell else {
+            cancelQuickStickers()
+            return
+        }
+        cell.alpha = 0
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        overlay.dismiss(selectedIndex: selectedIndex, targetRect: cell.stickerFrame(in: view)) { [weak self, weak cell] in
+            cell?.alpha = 1
+            self?.overlay = nil
         }
     }
 
-    private func cancelQuickAttach() {
+    private func cancelQuickStickers() {
         guard let overlay else { return }
         overlay.dismiss(selectedIndex: nil, targetRect: nil) { [weak self] in
             self?.overlay = nil
-            self?.inputPanel.attachButton.alpha = 1.0
         }
     }
 
     // MARK: - Sending
 
-    private func sendMessage(text: String?, image: UIImage?) {
-        var appended = 0
-        // Send source: the attachment preview for media, the field for text
-        // (ChatMessageTransitionNode source rects).
-        let sourceRect = image != nil ? inputPanel.chipFrame(in: view) : inputPanel.fieldFrame(in: view)
-        if let image {
-            messages.append(Message(content: .photo(image, caption: text), isOutgoing: true, date: Date()))
-            appended += 1
-        } else if let text {
-            messages.append(Message(content: .text(text), isOutgoing: true, date: Date()))
-            appended += 1
-        }
-        guard appended > 0 else { return }
+    @discardableResult
+    private func appendSticker(_ sticker: UIImage) -> IndexPath {
+        messages.append(Message(content: .sticker(sticker), isOutgoing: true, date: Date()))
+        tableView.reloadData()
+        let indexPath = IndexPath(row: messages.count - 1, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
+        tableView.layoutIfNeeded()
+        return indexPath
+    }
 
-        inputPanel.clearAfterSend()
+    private func sendTextMessage(_ text: String) {
+        let sourceRect = inputPanel.fieldFrame(in: view)
+        messages.append(Message(content: .text(text), isOutgoing: true, date: Date()))
         tableView.reloadData()
         let indexPath = IndexPath(row: messages.count - 1, section: 0)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
@@ -527,8 +500,6 @@ final class ChatViewController: UIViewController {
             cell.layer.add(horizontal, forKey: "sendTransitionX")
         }
 
-        // A photo gets no canned reply — the demo ends on the sent bubble.
-        guard image == nil else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             guard let self else { return }
             self.messages.append(Message(content: .text("👍"), isOutgoing: false, date: Date()))
@@ -563,9 +534,9 @@ extension ChatViewController: UITableViewDataSource {
             cell.configure(with: message, isFirstInGroup: isFirstInGroup, isLastInGroup: isLastInGroup,
                            availableWidth: tableView.bounds.width)
             return cell
-        case .photo:
-            let cell = tableView.dequeueReusableCell(withIdentifier: PhotoMessageCell.reuseIdentifier, for: indexPath) as! PhotoMessageCell
-            cell.configure(with: message, isFirstInGroup: isFirstInGroup, isLastInGroup: isLastInGroup)
+        case .sticker:
+            let cell = tableView.dequeueReusableCell(withIdentifier: StickerMessageCell.reuseIdentifier, for: indexPath) as! StickerMessageCell
+            cell.configure(with: message)
             return cell
         }
     }

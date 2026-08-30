@@ -3,7 +3,7 @@ import UIKit
 struct Message {
     enum Content {
         case text(String)
-        case photo(UIImage, caption: String?)
+        case sticker(UIImage)
     }
 
     let content: Content

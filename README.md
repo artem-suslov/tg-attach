@@ -1,20 +1,17 @@
-# QuickAttach
-
-<img src="docs/fan-frames.png" width="900" alt="six frames of the fan opening, then the attached photo">
+# Quick Stickers
 
 Telegram's iOS chat screen, rebuilt in plain UIKit — the original runs on
 their AsyncDisplayKit fork, with nodes and hand-computed layout — plus one
-thing Telegram doesn't have: **quick attach on a long press**, the way ChatGPT
-does it.
+focused interaction: **quick stickers on a long press**.
 
 ## Why
 
-Sending a photo you just took costs some steps — paperclip, sheet,
-tap — and it's almost always one of the last few pictures in the roll.
+Sending a sticker should be as immediate as reacting with one: press, slide,
+release.
 
-Here you press and hold the paperclip, four thumbnails fan out of it (camera
-first, then recents), you slide onto one and let go. It lands in the composer.
-Release anywhere else and everything folds back.
+Here you press and hold the sticker button, six local demo stickers fan out of
+it, you slide onto one and let go. The selected sticker flies directly into a
+new outgoing message. Release anywhere else and everything folds back.
 
 ## How
 
@@ -31,13 +28,13 @@ line, so each card runs **two springs — one on `position.x`, one on
 slower smooth X bends the path into an arc while both axes keep real spring
 physics, which a keyframed curve throws away. Cancelling swaps the two axes'
 parameters and the card leaves along the path it arrived on. Numbers live in
-`FanTuning.swift`, the gesture in `QuickAttachOverlayView.swift`.
+`FanTuning.swift`, the gesture in `QuickStickerOverlayView.swift`.
 
 ## Run
 
-Open `QuickAttach.xcodeproj`, pick a simulator, Run, hold the paperclip.
-Without photo access the fan falls back to placeholders; the camera tile needs
-a real device.
+Open `QuickAttach.xcodeproj`, pick an iPhone simulator, Run, and hold the
+sticker icon in the composer. The six bundled stickers work identically on a
+simulator and a real device; the app asks for no media permissions.
 
 ---
 
