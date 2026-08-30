@@ -11,6 +11,9 @@ final class StickerPreviewView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
+        layer.cornerRadius = 12
+        layer.cornerCurve = .continuous
+        layer.masksToBounds = true
         isUserInteractionEnabled = false
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -41,6 +44,10 @@ final class StickerPreviewView: UIView {
             let item = AVPlayerItem(url: url)
             let playerLayer = AVPlayerLayer(player: player)
             playerLayer.videoGravity = .resizeAspect
+            // The source MP4 has opaque green pixels in its outer corners.
+            // Clip both layers so the chat wallpaper shows through instead.
+            playerLayer.cornerRadius = layer.cornerRadius
+            playerLayer.masksToBounds = true
             layer.insertSublayer(playerLayer, at: 0)
             self.player = player
             self.looper = AVPlayerLooper(player: player, templateItem: item)
