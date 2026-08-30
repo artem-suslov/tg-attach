@@ -12,6 +12,7 @@ final class TextMessageCell: UITableViewCell {
     private let bubbleImageView = UIImageView()
     private let bodyGuide = UILayoutGuide()
     private let messageLabel = UILabel()
+    private let particleTextView = ParticleTextRevealView()
     private let timeLabel = UILabel()
     private let checkBack = UIImageView()   // full check
     private let checkFront = UIImageView()  // partial check
@@ -39,6 +40,9 @@ final class TextMessageCell: UITableViewCell {
         messageLabel.font = .systemFont(ofSize: 17)
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(messageLabel)
+
+        particleTextView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(particleTextView)
 
         timeLabel.font = .systemFont(ofSize: 11)
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -76,6 +80,11 @@ final class TextMessageCell: UITableViewCell {
             messageLabel.topAnchor.constraint(equalTo: bodyGuide.topAnchor, constant: 6 + px),
             messageLabel.trailingAnchor.constraint(lessThanOrEqualTo: bodyGuide.trailingAnchor, constant: -11),
 
+            particleTextView.leadingAnchor.constraint(equalTo: messageLabel.leadingAnchor),
+            particleTextView.topAnchor.constraint(equalTo: messageLabel.topAnchor),
+            particleTextView.trailingAnchor.constraint(equalTo: messageLabel.trailingAnchor),
+            particleTextView.bottomAnchor.constraint(equalTo: messageLabel.bottomAnchor),
+
             timeTrailing,
             timeLabel.bottomAnchor.constraint(equalTo: bodyGuide.bottomAnchor, constant: -4),
 
@@ -89,8 +98,21 @@ final class TextMessageCell: UITableViewCell {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(with message: Message, isFirstInGroup: Bool, isLastInGroup: Bool, availableWidth: CGFloat) {
-        guard case let .text(text) = message.content else { return }
+    func configure(with message: Message, isFirstInGroup: Bool, isLastInGroup: Bool,
+                   availableWidth: CGFloat, particleHidden: Bool = false,
+                   onParticleRevealChanged: ((Bool) -> Void)? = nil) {
+        let text: String
+        let usesParticles: Bool
+        switch message.content {
+        case let .text(value):
+            text = value
+            usesParticles = false
+        case let .particleText(value):
+            text = value
+            usesParticles = true
+        case .sticker:
+            return
+        }
         messageLabel.text = text
         timeLabel.text = message.timeString
 
@@ -114,6 +136,14 @@ final class TextMessageCell: UITableViewCell {
             neighbors: neighbors
         )
         messageLabel.textColor = outgoing ? Theme.outgoingText : Theme.incomingText
+        particleTextView.configure(
+            text: text,
+            font: messageLabel.font,
+            color: messageLabel.textColor,
+            hidden: usesParticles && particleHidden,
+            enabled: usesParticles,
+            onRevealChanged: onParticleRevealChanged
+        )
         timeLabel.textColor = outgoing ? Theme.outgoingTime : Theme.incomingTime
         checkBack.isHidden = !outgoing
         checkFront.isHidden = !outgoing

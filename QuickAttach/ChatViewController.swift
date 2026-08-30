@@ -19,6 +19,7 @@ final class ChatViewController: UIViewController {
     private var messages: [Message] = []
     private var overlay: QuickStickerOverlayView?
     private var sentStickerCount = 0
+    private var isParticleIntroRevealed = false
 
     // MARK: - Lifecycle
 
@@ -189,6 +190,7 @@ final class ChatViewController: UIViewController {
             calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
         }
         messages = [
+            Message(content: .particleText("i got something for you"), isOutgoing: false, date: at(19, 40)),
             Message(content: .text("will you be home by eight?"), isOutgoing: false, date: at(19, 41)),
             Message(content: .text("yeah, around then."), isOutgoing: true, date: at(19, 42)),
             Message(content: .text("okay, i'll order food in the meantime."), isOutgoing: false, date: at(19, 43)),
@@ -567,10 +569,18 @@ extension ChatViewController: UITableViewDataSource {
         let isLastInGroup = indexPath.row == messages.count - 1
             || messages[indexPath.row + 1].isOutgoing != message.isOutgoing
         switch message.content {
-        case .text:
+        case .text, .particleText:
             let cell = tableView.dequeueReusableCell(withIdentifier: TextMessageCell.reuseIdentifier, for: indexPath) as! TextMessageCell
+            let particleHidden: Bool
+            if case .particleText = message.content {
+                particleHidden = !isParticleIntroRevealed
+            } else {
+                particleHidden = false
+            }
             cell.configure(with: message, isFirstInGroup: isFirstInGroup, isLastInGroup: isLastInGroup,
-                           availableWidth: tableView.bounds.width)
+                           availableWidth: tableView.bounds.width, particleHidden: particleHidden) { [weak self] isRevealed in
+                self?.isParticleIntroRevealed = isRevealed
+            }
             return cell
         case .sticker:
             let cell = tableView.dequeueReusableCell(withIdentifier: StickerMessageCell.reuseIdentifier, for: indexPath) as! StickerMessageCell

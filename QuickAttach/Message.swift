@@ -3,6 +3,7 @@ import UIKit
 struct Message {
     enum Content {
         case text(String)
+        case particleText(String)
         case sticker(StickerAsset)
     }
 
