@@ -150,8 +150,11 @@ final class ParticleTextRevealView: UIView {
         for y in stride(from: 0, to: cgImage.height, by: sampleStep) {
             for x in stride(from: 0, to: cgImage.width, by: sampleStep) {
                 let offset = y * bytesPerRow + x * bytesPerPixel
-                let alpha = bytes[offset + 3]
-                guard alpha > 80, Int.random(in: 0...2) != 0 else { continue }
+                // UIGraphics may return BGRA or ARGB depending on the device.
+                // The text is black on a transparent canvas, so coverage is the
+                // strongest channel rather than assuming alpha is byte #3.
+                let coverage = max(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3])
+                guard coverage > 80, Int.random(in: 0...2) != 0 else { continue }
                 points.append(CGPoint(x: CGFloat(x), y: CGFloat(y)))
                 if points.count == 110 { return points }
             }
