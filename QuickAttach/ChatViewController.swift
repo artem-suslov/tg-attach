@@ -18,6 +18,7 @@ final class ChatViewController: UIViewController {
 
     private var messages: [Message] = []
     private var overlay: QuickStickerOverlayView?
+    private var hasKateReactedToSticker = false
 
     // MARK: - Lifecycle
 
@@ -482,7 +483,20 @@ final class ChatViewController: UIViewController {
         let indexPath = IndexPath(row: messages.count - 1, section: 0)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
         tableView.layoutIfNeeded()
+        scheduleKateStickerReactionIfNeeded()
         return indexPath
+    }
+
+    private func scheduleKateStickerReactionIfNeeded() {
+        guard !hasKateReactedToSticker else { return }
+        hasKateReactedToSticker = true
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self else { return }
+            self.messages.append(Message(content: .text("wtf"), isOutgoing: false, date: Date()))
+            self.tableView.reloadData()
+            self.scrollToBottom(animated: true)
+        }
     }
 
     private func sendTextMessage(_ text: String) {
