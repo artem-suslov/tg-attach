@@ -7,6 +7,7 @@ final class StickerPreviewView: UIView {
     private var player: AVQueuePlayer?
     private var looper: AVPlayerLooper?
     private var playerLayer: AVPlayerLayer?
+    private var playerClipMask: CAShapeLayer?
 
     init(cornerRadius: CGFloat = 0, frame: CGRect = .zero) {
         super.init(frame: frame)
@@ -29,6 +30,7 @@ final class StickerPreviewView: UIView {
     func setCornerRadius(_ cornerRadius: CGFloat) {
         layer.cornerRadius = cornerRadius
         playerLayer?.cornerRadius = cornerRadius
+        updatePlayerClipMask()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -57,10 +59,15 @@ final class StickerPreviewView: UIView {
             // Give the new layer its current bounds immediately rather than
             // waiting for another layoutSubviews call.
             playerLayer.frame = bounds
+            let clipMask = CAShapeLayer()
+            clipMask.fillColor = UIColor.black.cgColor
+            playerLayer.mask = clipMask
             layer.insertSublayer(playerLayer, at: 0)
             self.player = player
             self.looper = AVPlayerLooper(player: player, templateItem: item)
             self.playerLayer = playerLayer
+            self.playerClipMask = clipMask
+            updatePlayerClipMask()
             player.play()
         }
     }
@@ -68,6 +75,7 @@ final class StickerPreviewView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer?.frame = bounds
+        updatePlayerClipMask()
     }
 
     deinit { stopVideo() }
@@ -79,5 +87,16 @@ final class StickerPreviewView: UIView {
         player = nil
         looper = nil
         playerLayer = nil
+        playerClipMask = nil
+    }
+
+    private func updatePlayerClipMask() {
+        guard let playerLayer, let playerClipMask else { return }
+        let clipBounds = playerLayer.bounds
+        playerClipMask.frame = clipBounds
+        playerClipMask.path = UIBezierPath(
+            roundedRect: clipBounds,
+            cornerRadius: layer.cornerRadius
+        ).cgPath
     }
 }
