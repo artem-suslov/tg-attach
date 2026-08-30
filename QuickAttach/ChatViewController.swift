@@ -188,10 +188,11 @@ final class ChatViewController: UIViewController {
             calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
         }
         messages = [
-            Message(content: .text("Hey! Are you home yet?"), isOutgoing: false, date: at(9, 41)),
-            Message(content: .text("Yep, just walked in 🙌"), isOutgoing: true, date: at(9, 42)),
-            Message(content: .text("Send me something cheerful before you forget"), isOutgoing: false, date: at(9, 43)),
-            Message(content: .text("Try holding the sticker button —\nquick stickers 😉"), isOutgoing: true, date: at(9, 44)),
+            Message(content: .text("Will you be home by eight?"), isOutgoing: false, date: at(19, 41)),
+            Message(content: .text("Yeah, around then."), isOutgoing: true, date: at(19, 42)),
+            Message(content: .text("Okay, I'll order food in the meantime."), isOutgoing: false, date: at(19, 43)),
+            Message(content: .text("Just nothing spicy, please."), isOutgoing: true, date: at(19, 44)),
+            Message(content: .text("Okay, sounds good."), isOutgoing: false, date: at(19, 45)),
         ]
     }
 
