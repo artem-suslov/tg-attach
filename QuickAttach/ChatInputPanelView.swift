@@ -60,7 +60,10 @@ final class ChatInputPanelView: UIView {
         stickerButton.hitSlop = 8
         stickerButton.isExclusiveTouch = true
         stickerButton.accessibilityLabel = "Quick stickers"
-        fieldBackground.contentView.addSubview(stickerButton)
+        // Keep this control above the native glass view. On iOS 26 the glass
+        // effect owns its content hit-testing, so nesting a UIButton inside it
+        // can make the visible icon inert.
+        addSubview(stickerButton)
         stickerIcon.image = UIImage(named: "TGAccessoryIconStickers")
         stickerIcon.tintColor = Theme.inputControl
         stickerIcon.alpha = 0.5
@@ -166,6 +169,8 @@ final class ChatInputPanelView: UIView {
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let inSticker = stickerButton.point(inside: convert(point, to: stickerButton), with: event)
+        if inSticker { return stickerButton }
         if let hit = super.hitTest(point, with: event) { return hit }
         let inAttach = attachButton.point(inside: convert(point, to: attachButton), with: event)
         return inAttach ? attachButton : nil
