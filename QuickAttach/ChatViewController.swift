@@ -385,6 +385,10 @@ final class ChatViewController: UIViewController {
 
             inputPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             inputPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // A plain UIView has no intrinsic height. Without this, its
+            // subviews can still be visible outside a zero-height container,
+            // but the container never receives touches.
+            inputPanel.heightAnchor.constraint(equalToConstant: 40),
             inputPanel.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8), // inputPanelsInset
         ])
     }
