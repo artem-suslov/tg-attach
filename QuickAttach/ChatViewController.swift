@@ -481,8 +481,11 @@ final class ChatViewController: UIViewController {
     @discardableResult
     private func appendSticker(_ sticker: StickerAsset) -> IndexPath {
         messages.append(Message(content: .sticker(sticker), isOutgoing: true, date: Date()))
-        tableView.reloadData()
         let indexPath = IndexPath(row: messages.count - 1, section: 0)
+        // Reloading the whole table tears down every visible AVPlayerLayer for
+        // one frame. Insert only the new row so the existing chat remains
+        // visually stable while the sticker flies into place.
+        tableView.insertRows(at: [indexPath], with: .none)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
         tableView.layoutIfNeeded()
         scheduleKateStickerReaction()
@@ -501,8 +504,9 @@ final class ChatViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self else { return }
             self.messages.append(Message(content: .text(reaction), isOutgoing: false, date: Date()))
-            self.tableView.reloadData()
-            self.scrollToBottom(animated: true)
+            let indexPath = IndexPath(row: self.messages.count - 1, section: 0)
+            self.tableView.insertRows(at: [indexPath], with: .automatic)
+            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
         }
     }
 
