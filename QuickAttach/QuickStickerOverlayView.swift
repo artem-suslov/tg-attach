@@ -44,16 +44,31 @@ final class QuickStickerOverlayView: UIView {
         impactHaptic.impactOccurred()
         selectionHaptic.prepare()
 
-        let count = CGFloat(stickers.count)
-        let availableWidth = bounds.width - 16 - itemSpacing * (count - 1)
-        // 80pt is 25% larger than the original 64pt preview, while the
-        // available-width cap still keeps every sticker on small iPhones.
-        let itemSide = min(80, max(48, floor(availableWidth / count)))
-        let stripWidth = itemSide * count + itemSpacing * (count - 1)
-        let x = max(8, min(sourceRect.midX - stripWidth + itemSide / 2, bounds.width - 8 - stripWidth))
-        let y = max(safeAreaInsets.top + 8, sourceRect.minY - stripBottomGap - itemSide)
-        itemFrames = stickers.indices.map {
-            CGRect(x: x + CGFloat($0) * (itemSide + itemSpacing), y: y, width: itemSide, height: itemSide)
+        // Keep the source aspect ratio for every item. A square preview frame
+        // made rectangular stickers look as if the app had painted a backing
+        // card underneath them.
+        let maximumEdge: CGFloat = 80
+        let unscaledSizes = stickers.map { sticker -> CGSize in
+            let ratio = max(0.2, sticker.aspectRatio)
+            if ratio >= 1 {
+                return CGSize(width: maximumEdge, height: maximumEdge / ratio)
+            } else {
+                return CGSize(width: maximumEdge * ratio, height: maximumEdge)
+            }
+        }
+        let availableWidth = bounds.width - 16 - itemSpacing * CGFloat(stickers.count - 1)
+        let unscaledWidth = unscaledSizes.reduce(0) { $0 + $1.width }
+        let scale = min(1, availableWidth / max(1, unscaledWidth))
+        let itemSizes = unscaledSizes.map { CGSize(width: $0.width * scale, height: $0.height * scale) }
+        let stripWidth = itemSizes.reduce(0) { $0 + $1.width } + itemSpacing * CGFloat(stickers.count - 1)
+        let maxHeight = itemSizes.map(\.height).max() ?? maximumEdge
+        let rightmostWidth = itemSizes.last?.width ?? 0
+        let x = max(8, min(sourceRect.midX - stripWidth + rightmostWidth / 2, bounds.width - 8 - stripWidth))
+        let y = max(safeAreaInsets.top + 8, sourceRect.minY - stripBottomGap - maxHeight)
+        var nextX = x
+        itemFrames = itemSizes.map { size in
+            defer { nextX += size.width + itemSpacing }
+            return CGRect(x: nextX, y: y + (maxHeight - size.height) / 2, width: size.width, height: size.height)
         }
 
         itemViews = zip(stickers, itemFrames).map { sticker, frame in
@@ -97,12 +112,8 @@ final class QuickStickerOverlayView: UIView {
             let isHighlighted = index == next
             UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.62, initialSpringVelocity: 0.4, options: .allowUserInteraction) {
                 view.transform = isHighlighted ? CGAffineTransform(scaleX: 1.18, y: 1.18) : .identity
-                view.layer.shadowOpacity = isHighlighted ? 0.24 : 0
             }
             if isHighlighted {
-                view.layer.shadowColor = UIColor.black.cgColor
-                view.layer.shadowRadius = 10
-                view.layer.shadowOffset = CGSize(width: 0, height: 5)
                 bringSubviewToFront(view)
             }
         }
