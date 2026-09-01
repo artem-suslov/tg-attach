@@ -112,6 +112,7 @@ final class QuickStickerOverlayView: UIView {
             let isHighlighted = index == next
             UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.62, initialSpringVelocity: 0.4, options: .allowUserInteraction) {
                 view.transform = isHighlighted ? CGAffineTransform(scaleX: 1.18, y: 1.18) : .identity
+                view.alpha = next == nil || isHighlighted ? 1 : 0.8
             }
             if isHighlighted {
                 bringSubviewToFront(view)
