@@ -110,39 +110,43 @@ enum TelegramGraphics {
                 context.fillPath()
                 context.fill(CGRect(origin: CGPoint(x: fixedMainDiameter / 2.0, y: floor(fixedMainDiameter / 2.0)),
                                     size: CGSize(width: fixedMainDiameter / 2.0, height: ceil(bottomEllipse.midY) - floor(fixedMainDiameter / 2.0))))
+                // Square off the body corner under the tail so the bottom edge
+                // runs flat into it instead of dipping where corner and curve meet.
+                context.fill(CGRect(x: fixedMainDiameter - bottomRightRadius, y: fixedMainDiameter - bottomRightRadius,
+                                    width: bottomRightRadius, height: bottomRightRadius))
+            }
+
+            if drawTail {
+                // Punch the concave tail curve out of the fill.
+                context.setFillColor(UIColor.clear.cgColor)
+                context.setBlendMode(.copy)
+                context.fillEllipse(in: topEllipse.insetBy(dx: borderOffset, dy: borderOffset))
+                context.setBlendMode(.normal)
             }
 
             // Outline (stroke).
             context.setStrokeColor(strokeColor.cgColor)
             context.setLineWidth(borderWidth)
-            addBubblePath(offset: borderOffset)
-            context.strokePath()
-
             if drawTail {
-                let outlineBottomEllipse = bottomEllipse.insetBy(dx: -borderOffset, dy: -borderOffset)
-                context.move(to: CGPoint(x: outlineBottomEllipse.minX, y: outlineBottomEllipse.midY))
-                context.addQuadCurve(to: CGPoint(x: outlineBottomEllipse.midX, y: outlineBottomEllipse.maxY), control: CGPoint(x: outlineBottomEllipse.minX, y: outlineBottomEllipse.maxY))
-                context.addQuadCurve(to: CGPoint(x: outlineBottomEllipse.maxX, y: outlineBottomEllipse.midY), control: CGPoint(x: outlineBottomEllipse.maxX, y: outlineBottomEllipse.maxY))
-                context.strokePath()
-                context.move(to: CGPoint(x: fixedMainDiameter + borderOffset, y: fixedMainDiameter / 2.0))
-                context.addLine(to: CGPoint(x: fixedMainDiameter + borderOffset, y: outlineBottomEllipse.midY))
-                context.strokePath()
-
-                // Punch the concave tail curve out of both fill and stroke.
-                context.setFillColor(UIColor.clear.cgColor)
-                context.setBlendMode(.copy)
-                context.fillEllipse(in: topEllipse.insetBy(dx: borderOffset, dy: borderOffset))
-                context.setBlendMode(.normal)
-
-                // Re-stroke the concave inner tail edge, clipped to the tail's
-                // lower ellipse (ChatMessageBubbleImages.swift:334-347).
+                // Stroking the rounded rect and the tail curves separately left
+                // their inner parts visible inside the filled bubble as a grey
+                // arc. Stroke the body everywhere except the tail corner, then
+                // trace only the outer edge of the merged body + tail shape.
+                let cornerStart = fixedMainDiameter - bottomRightRadius
                 context.saveGState()
-                context.addEllipse(in: bottomEllipse.insetBy(dx: -1.0, dy: -1.0))
-                context.clip()
-                context.setStrokeColor(strokeColor.cgColor)
-                context.setLineWidth(borderWidth)
-                context.strokeEllipse(in: topEllipse.insetBy(dx: borderOffset, dy: borderOffset))
+                context.addRect(CGRect(x: -10.0, y: -10.0, width: fixedMainDiameter + 40.0, height: fixedMainDiameter + 40.0))
+                context.addRect(CGRect(x: cornerStart, y: cornerStart, width: 40.0, height: 40.0))
+                context.clip(using: .evenOdd)
+                addBubblePath(offset: borderOffset)
+                context.strokePath()
                 context.restoreGState()
+
+                context.addPath(tailOutlinePath(bottomEllipse: bottomEllipse, topEllipse: topEllipse,
+                                                bodyEdge: fixedMainDiameter, cornerRadius: bottomRightRadius))
+                context.strokePath()
+            } else {
+                addBubblePath(offset: borderOffset)
+                context.strokePath()
             }
         }
 
@@ -156,6 +160,50 @@ enum TelegramGraphics {
                                   bottom: imageSize.height - CGFloat(capY) - 1.0,
                                   right: imageSize.width - CGFloat(capX) - 1.0)
         return image.resizableImage(withCapInsets: insets, resizingMode: .stretch)
+    }
+
+    /// Outer edge of the tail corner in the 33pt template (outgoing orientation):
+    /// body right edge down to the punched ellipse, the ellipse down to the tip,
+    /// then the lower tail curve back to the body and along its flat bottom.
+    private static func tailOutlinePath(bottomEllipse: CGRect, topEllipse: CGRect,
+                                        bodyEdge: CGFloat, cornerRadius: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        let cornerCenter = CGPoint(x: bodyEdge - cornerRadius, y: bodyEdge - cornerRadius)
+        let steps = 24
+
+        path.move(to: CGPoint(x: bodyEdge, y: cornerCenter.y))
+        path.addLine(to: CGPoint(x: bodyEdge, y: topEllipse.midY))
+
+        let rx = topEllipse.width / 2.0, ry = topEllipse.height / 2.0
+        let endAngle = CGFloat.pi - asin(min(1.0, (bodyEdge - topEllipse.midY) / ry))
+        for i in 1...steps {
+            let angle = CGFloat.pi + (endAngle - CGFloat.pi) * CGFloat(i) / CGFloat(steps)
+            path.addLine(to: CGPoint(x: topEllipse.midX + rx * cos(angle), y: topEllipse.midY + ry * sin(angle)))
+        }
+
+        let p0 = CGPoint(x: bottomEllipse.minX, y: bottomEllipse.midY)
+        let c = CGPoint(x: bottomEllipse.minX, y: bottomEllipse.maxY)
+        let p2 = CGPoint(x: bottomEllipse.midX, y: bottomEllipse.maxY)
+        func quad(_ t: CGFloat) -> CGPoint {
+            CGPoint(x: (1 - t) * (1 - t) * p0.x + 2 * t * (1 - t) * c.x + t * t * p2.x,
+                    y: (1 - t) * (1 - t) * p0.y + 2 * t * (1 - t) * c.y + t * t * p2.y)
+        }
+        // Walk the lower curve back from the tip to the body edge; the squared
+        // corner under the tail continues it as a flat bottom edge.
+        var exitT: CGFloat = 0
+        var t: CGFloat = 1
+        while t > 0 {
+            if quad(t).x <= bodyEdge {
+                exitT = t
+                break
+            }
+            t -= 0.001
+        }
+        for i in 0...steps {
+            path.addLine(to: quad(1 - (1 - exitT) * CGFloat(i) / CGFloat(steps)))
+        }
+        path.addLine(to: CGPoint(x: cornerCenter.x, y: bodyEdge))
+        return path
     }
 
     /// Distance from the bubble image's edges to the visual bubble body.

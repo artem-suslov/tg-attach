@@ -44,6 +44,9 @@ final class ChatInputPanelView: UIView {
 
         fieldBackground.translatesAutoresizingMaskIntoConstraints = false
         addSubview(fieldBackground)
+        // Press feedback: the field swells slightly under the finger. Runs
+        // alongside the text field's own touch handling instead of replacing it.
+        fieldBackground.addGestureRecognizer(makeFieldPressGesture())
 
         textField.attributedPlaceholder = NSAttributedString(
             string: "Message", attributes: [.foregroundColor: Theme.inputPlaceholder]
@@ -60,6 +63,12 @@ final class ChatInputPanelView: UIView {
         stickerButton.hitSlop = 8
         stickerButton.isExclusiveTouch = true
         stickerButton.accessibilityLabel = "Quick stickers"
+        // The sticker icon sits on the field, so pressing it swells the field
+        // too. Control events rather than another recognizer, so the button's
+        // own tap stays intact; once the fan's long press takes the touch over,
+        // ChatViewController releases the field when that gesture ends.
+        stickerButton.addTarget(self, action: #selector(stickerTouchDown), for: .touchDown)
+        stickerButton.addTarget(self, action: #selector(stickerTouchUp), for: [.touchUpInside, .touchUpOutside])
         // Keep this control above the native glass view. On iOS 26 the glass
         // effect owns its content hit-testing, so nesting a UIButton inside it
         // can make the visible icon inert.
@@ -178,6 +187,34 @@ final class ChatInputPanelView: UIView {
 
     @objc private func textChanged() { updateSendButton() }
 
+    private func makeFieldPressGesture() -> UILongPressGestureRecognizer {
+        let gesture = UILongPressGestureRecognizer(target: self, action: #selector(fieldPressed(_:)))
+        gesture.minimumPressDuration = 0
+        gesture.allowableMovement = .greatestFiniteMagnitude
+        gesture.cancelsTouchesInView = false
+        gesture.delaysTouchesEnded = false
+        gesture.delegate = self
+        return gesture
+    }
+
+    @objc private func fieldPressed(_ gesture: UILongPressGestureRecognizer) {
+        switch gesture.state {
+        case .began: setFieldPressed(true)
+        case .ended, .cancelled, .failed: setFieldPressed(false)
+        default: break
+        }
+    }
+
+    @objc private func stickerTouchDown() { setFieldPressed(true) }
+    @objc private func stickerTouchUp() { setFieldPressed(false) }
+
+    func setFieldPressed(_ pressed: Bool) {
+        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.fieldBackground.transform = pressed ? CGAffineTransform(scaleX: 1.03, y: 1.03) : .identity
+        }
+    }
+
     @objc private func sendTapped() {
         let text = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !text.isEmpty else { return }
@@ -216,6 +253,20 @@ final class HitSlopButton: UIButton {
     var hitSlop: CGFloat = 0
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         bounds.insetBy(dx: -hitSlop, dy: -hitSlop).contains(point)
+    }
+}
+
+extension ChatInputPanelView: UIGestureRecognizerDelegate {
+    // The sticker button overlaps the field; letting the field's press
+    // recognizer see that touch swallows the button's tap in the Simulator.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard let view = touch.view else { return true }
+        return !view.isDescendant(of: stickerButton)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        true
     }
 }
 
