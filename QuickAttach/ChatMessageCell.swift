@@ -402,7 +402,7 @@ final class PhotoMessageCell: UITableViewCell {
 final class StickerMessageCell: UITableViewCell {
     static let reuseIdentifier = "StickerMessageCell"
 
-    private let stickerView = StickerPreviewView(cornerRadius: 20)
+    private let stickerView = StickerPreviewView()
     private let timeBadge = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
     private let timeLabel = UILabel()
     private let checkBack = UIImageView()
@@ -468,8 +468,14 @@ final class StickerMessageCell: UITableViewCell {
             stickerWidth.constant = maximumSide * aspectRatio
             stickerHeight.constant = maximumSide
         }
+        stickerView.setCornerRadius(asset.cornerRadius)
+        stickerView.layer.cornerCurve = .continuous
         stickerView.configure(with: asset)
         timeLabel.text = message.timeString
+    }
+
+    func syncPlayback(to start: CFTimeInterval) {
+        stickerView.syncPlayback(to: start)
     }
 
     func stickerFrame(in view: UIView) -> CGRect {

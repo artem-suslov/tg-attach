@@ -7,6 +7,7 @@ import UIKit
 final class ChatViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
+    private static let tableOverscan: CGFloat = 400
     private let inputPanel = ChatInputPanelView()
     private let headerContainer = UIView()
     private let gradientView = UIImageView()
@@ -18,6 +19,12 @@ final class ChatViewController: UIViewController {
 
     private var messages: [Message] = []
     private var overlay: QuickStickerOverlayView?
+    private let topBlurView = VariableBlurView(maxBlurRadius: 10, strongEdge: .top)
+    private let bottomBlurView = VariableBlurView(maxBlurRadius: 10, strongEdge: .bottom)
+    /// Grows the bottom blur up behind the quick-sticker strip while it is open.
+    private var isBottomBlurExpanded = false
+    /// The list glide started by the latest sticker send, replayed by the flying card.
+    private var stickerScrollAnimation: CASpringAnimation?
     private var sentStickerCount = 0
     private var isParticleIntroRevealed = false
 
@@ -31,6 +38,7 @@ final class ChatViewController: UIViewController {
         setupTable()
         setupInputPanel()
         setupTopEdgeEffect()
+        setupEdgeBlurs()
         setupHeader()
         setupQuickStickerGesture()
     }
@@ -38,16 +46,25 @@ final class ChatViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         scrollToBottom(animated: false)
+        scheduleOpeningLine()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         layoutTopEdgeEffect()
+        layoutEdgeBlurs()
         // Keep content clear of the floating composer (grows when the chip is shown).
         let bottomInset = inputPanel.bounds.height + 16
         if abs(tableView.contentInset.bottom - bottomInset) > 0.5 {
             tableView.contentInset.bottom = bottomInset
             tableView.verticalScrollIndicatorInsets.bottom = inputPanel.bounds.height + 8
+        }
+        // The table starts `tableOverscan` above the screen; the top inset puts
+        // the first message back under the header (safe area + 60pt nav band).
+        let topInset = Self.tableOverscan + view.safeAreaInsets.top + 60
+        if abs(tableView.contentInset.top - topInset) > 0.5 {
+            tableView.contentInset.top = topInset
+            tableView.verticalScrollIndicatorInsets.top = topInset
         }
     }
 
@@ -81,6 +98,40 @@ final class ChatViewController: UIViewController {
     /// a wallpaper clone masked by an 80pt bottom-fade gradient at alpha 0.75,
     /// height = navBar + 34. (Their extra VariableBlurView maxBlurRadius 1.0
     /// uses private CAFilter — omitted; the wallpaper fade is the dominant part.)
+    // MARK: - Edge blurs
+    // Progressive blur over the messages: strongest at the screen edge, fading
+    // out by the bottom of the title (top) and just above the composer (bottom).
+    // Both sit above the list and below the header / composer, so only the
+    // messages scrolling underneath get blurred.
+
+    private func setupEdgeBlurs() {
+        view.insertSubview(topBlurView, aboveSubview: topEdgeEffectView)
+        view.insertSubview(bottomBlurView, aboveSubview: topBlurView)
+    }
+
+    private func layoutEdgeBlurs() {
+        let width = view.bounds.width
+        topBlurView.frame = CGRect(x: 0, y: 0, width: width, height: view.safeAreaInsets.top + 56)
+        // Expanded: reach past the sticker strip (80pt cards, 16pt above the
+        // composer) so the chat behind it is blurred while the cards stay sharp.
+        let composerTop = inputPanel.frame.minY
+        let blurTop = isBottomBlurExpanded ? composerTop - 16 - 80 - 40 : composerTop - 24
+        bottomBlurView.frame = CGRect(x: 0, y: blurTop, width: width, height: view.bounds.height - blurTop)
+        // Resize the fade masks now, inside any running animation, so they
+        // stretch together with the blur instead of snapping afterwards.
+        topBlurView.layoutIfNeeded()
+        bottomBlurView.layoutIfNeeded()
+    }
+
+    private func setBottomBlurExpanded(_ expanded: Bool) {
+        guard expanded != isBottomBlurExpanded else { return }
+        isBottomBlurExpanded = expanded
+        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.layoutEdgeBlurs()
+        }
+    }
+
     private func setupTopEdgeEffect() {
         topEdgeEffectView.isUserInteractionEnabled = false
         topEdgeEffectView.clipsToBounds = true
@@ -185,17 +236,15 @@ final class ChatViewController: UIViewController {
     }
 
     private func seedMessages() {
-        let calendar = Calendar.current
-        func at(_ hour: Int, _ minute: Int) -> Date {
-            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+        // Times are relative to launch so they line up with the live replies.
+        func minutesAgo(_ minutes: Double) -> Date {
+            Date().addingTimeInterval(-minutes * 60)
         }
         messages = [
-            Message(content: .particleText("i got something for you"), isOutgoing: false, date: at(19, 40)),
-            Message(content: .text("will you be home by eight?"), isOutgoing: false, date: at(19, 41)),
-            Message(content: .text("yeah, around then."), isOutgoing: true, date: at(19, 42)),
-            Message(content: .text("okay, i'll order food in the meantime."), isOutgoing: false, date: at(19, 43)),
-            Message(content: .text("just nothing spicy, please."), isOutgoing: true, date: at(19, 44)),
-            Message(content: .text("okay, sounds good."), isOutgoing: false, date: at(19, 45)),
+            Message(content: .text("ok who ate my protein bar"), isOutgoing: false, date: minutesAgo(3)),
+            Message(content: .text("it was on the table 10 minutes ago"), isOutgoing: false, date: minutesAgo(3)),
+            Message(content: .text("no idea"), isOutgoing: true, date: minutesAgo(2)),
+            Message(content: .text("you're the only one home"), isOutgoing: false, date: minutesAgo(1)),
         ]
     }
 
@@ -365,6 +414,9 @@ final class ChatViewController: UIViewController {
         tableView.keyboardDismissMode = .interactive
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 60
+        // Insets are managed by hand in viewDidLayoutSubviews: the table extends
+        // past the top of the screen, so automatic safe-area insets don't apply.
+        tableView.contentInsetAdjustmentBehavior = .never
         tableView.contentInset = UIEdgeInsets(top: 60, left: 0, bottom: 65, right: 0)
         tableView.verticalScrollIndicatorInsets.top = 60
         tableView.register(TextMessageCell.self, forCellReuseIdentifier: TextMessageCell.reuseIdentifier)
@@ -382,7 +434,9 @@ final class ChatViewController: UIViewController {
         }
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
+            // The table reaches above the screen so rows scrolling out at the
+            // top stay laid out while animateScroll glides the list.
+            tableView.topAnchor.constraint(equalTo: view.topAnchor, constant: -Self.tableOverscan),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
@@ -424,8 +478,16 @@ final class ChatViewController: UIViewController {
         case .changed:
             overlay?.updateTracking(location: gesture.location(in: view))
         case .ended:
-            finishQuickStickers(location: gesture.location(in: view))
+            inputPanel.setFieldPressed(false)
+            let location = gesture.location(in: view)
+            // Released above the strip: keep it open as a scrollable panel.
+            if let overlay, overlay.shouldPin(at: location) {
+                overlay.pin()
+            } else {
+                finishQuickStickers(location: location)
+            }
         case .cancelled, .failed:
+            inputPanel.setFieldPressed(false)
             cancelQuickStickers()
         default:
             break
@@ -435,8 +497,7 @@ final class ChatViewController: UIViewController {
     private func presentQuickStickers() {
         guard overlay == nil else { return }
         view.endEditing(false)
-        let stickers = StickerProvider.recentStickers
-        guard !stickers.isEmpty else { return }
+        guard !StickerProvider.recentStickers.isEmpty else { return }
         let overlay = QuickStickerOverlayView(frame: view.bounds)
         overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(overlay)
@@ -445,25 +506,33 @@ final class ChatViewController: UIViewController {
             self?.finishQuickStickers(location: location)
         }
         let sourceRect = inputPanel.stickerButton.convert(inputPanel.stickerButton.bounds, to: view)
-        overlay.present(stickers: stickers, from: sourceRect)
+        overlay.present(recent: StickerProvider.recentStickers, more: StickerProvider.moreStickers, from: sourceRect)
+        setBottomBlurExpanded(true)
     }
 
     private func finishQuickStickers(location: CGPoint) {
         guard let overlay else { return }
+        setBottomBlurExpanded(false)
         guard let selectedIndex = overlay.finishTracking(location: location),
-              StickerProvider.recentStickers.indices.contains(selectedIndex) else {
+              StickerProvider.allStickers.indices.contains(selectedIndex) else {
             cancelQuickStickers()
             return
         }
-        let sticker = StickerProvider.recentStickers[selectedIndex]
+        let sticker = StickerProvider.allStickers[selectedIndex]
         let indexPath = appendSticker(sticker)
         guard let cell = tableView.cellForRow(at: indexPath) as? StickerMessageCell else {
             cancelQuickStickers()
             return
         }
         cell.alpha = 0
+        // Keep the animation running through the hand-off instead of
+        // restarting it when the message cell takes over from the preview.
+        if let start = overlay.playbackStart(at: selectedIndex) {
+            cell.syncPlayback(to: start)
+        }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        overlay.dismiss(selectedIndex: selectedIndex, targetRect: cell.stickerFrame(in: view)) { [weak self, weak cell] in
+        overlay.dismiss(selectedIndex: selectedIndex, targetRect: cell.stickerFrame(in: view),
+                        followScroll: stickerScrollAnimation) { [weak self, weak cell] in
             cell?.alpha = 1
             self?.overlay = nil
         }
@@ -471,6 +540,7 @@ final class ChatViewController: UIViewController {
 
     private func cancelQuickStickers() {
         guard let overlay else { return }
+        setBottomBlurExpanded(false)
         overlay.dismiss(selectedIndex: nil, targetRect: nil) { [weak self] in
             self?.overlay = nil
         }
@@ -485,36 +555,82 @@ final class ChatViewController: UIViewController {
         // Reloading the whole table tears down every visible AVPlayerLayer for
         // one frame. Insert only the new row so the existing chat remains
         // visually stable while the sticker flies into place.
+        let previousOffset = tableView.contentOffset.y
         tableView.insertRows(at: [indexPath], with: .none)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
         tableView.layoutIfNeeded()
+        stickerScrollAnimation = animateScroll(from: previousOffset)
         scheduleKateStickerReaction()
         return indexPath
     }
 
+    /// The list jumps to its new bottom immediately — so cells and frames are
+    /// final for the sticker hand-off — and an additive spring on the visible
+    /// bounds then glides the picture from the old position to the new one,
+    /// the way Telegram's list shifts up when a message is inserted.
+    @discardableResult
+    private func animateScroll(from previousOffset: CGFloat) -> CASpringAnimation? {
+        let delta = tableView.contentOffset.y - previousOffset
+        guard abs(delta) > 0.5 else { return nil }
+        let animation = CASpringAnimation(keyPath: "bounds.origin.y")
+        animation.fromValue = -delta
+        animation.toValue = 0
+        animation.isAdditive = true
+        animation.mass = 1
+        animation.stiffness = 170
+        animation.damping = 2 * sqrt(170) // critically damped: no bounce
+        animation.duration = animation.settlingDuration
+        tableView.layer.add(animation, forKey: "smoothScroll-\(UUID().uuidString)")
+        return animation
+    }
+
+    // MARK: - Scripted dialogue ("Protein bar")
+    // The demo video's script: Kate's opening line arrives on its own after
+    // launch, and each quick sticker the user sends gets her scripted replies.
+
+    private static let openingLine = (text: "be honest", delay: 2.0)
+    private static let stickerReplies: [[(text: String, delay: TimeInterval)]] = [
+        [("that's not how x-rays work", 0.8), ("fine. i bought a whole box", 2.2)],
+        [("THOSE ARE FOR AFTER THE GYM", 0.8)],
+    ]
+
+    private func scheduleOpeningLine() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.openingLine.delay) { [weak self] in
+            self?.receiveKateMessage(Self.openingLine.text)
+        }
+    }
+
     private func scheduleKateStickerReaction() {
         sentStickerCount += 1
-        let reaction: String
-        switch sentStickerCount {
-        case 1: reaction = "wtf"
-        case 2: reaction = "got it"
-        default: return
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            guard let self else { return }
-            self.messages.append(Message(content: .text(reaction), isOutgoing: false, date: Date()))
-            let indexPath = IndexPath(row: self.messages.count - 1, section: 0)
-            self.tableView.insertRows(at: [indexPath], with: .none)
-            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
-            self.tableView.layoutIfNeeded()
-            guard let cell = self.tableView.cellForRow(at: indexPath) else { return }
-            cell.alpha = 0
-            cell.transform = CGAffineTransform(translationX: 0, y: 12)
-            UIView.animate(withDuration: 0.24, delay: 0, options: .curveEaseOut) {
-                cell.alpha = 1
-                cell.transform = .identity
+        guard Self.stickerReplies.indices.contains(sentStickerCount - 1) else { return }
+        for reply in Self.stickerReplies[sentStickerCount - 1] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + reply.delay) { [weak self] in
+                self?.receiveKateMessage(reply.text)
             }
+        }
+    }
+
+    private func receiveKateMessage(_ text: String) {
+        messages.append(Message(content: .text(text), isOutgoing: false, date: Date()))
+        let indexPath = IndexPath(row: messages.count - 1, section: 0)
+        let previousOffset = tableView.contentOffset.y
+        tableView.insertRows(at: [indexPath], with: .none)
+        // A previous Kate text bubble now sits mid-group: redraw it without its
+        // tail. Sticker rows are left alone so their animation keeps running.
+        let previous = IndexPath(row: indexPath.row - 1, section: 0)
+        if previous.row >= 0, !messages[previous.row].isOutgoing,
+           case .text = messages[previous.row].content {
+            tableView.reloadRows(at: [previous], with: .none)
+        }
+        tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
+        tableView.layoutIfNeeded()
+        animateScroll(from: previousOffset)
+        guard let cell = tableView.cellForRow(at: indexPath) else { return }
+        cell.alpha = 0
+        cell.transform = CGAffineTransform(translationX: 0, y: 12)
+        UIView.animate(withDuration: 0.24, delay: 0, options: .curveEaseOut) {
+            cell.alpha = 1
+            cell.transform = .identity
         }
     }
 
