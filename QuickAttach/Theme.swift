@@ -22,7 +22,7 @@ enum Theme {
     static let sendIcon = rgb(0xFFFFFF)                     // :955
     static let incomingBubble = rgb(0xFFFFFF)               // :588
     static let outgoingBubble = rgb(0xE1FFC7)               // :643 (flat — no gradient in dayClassic)
-    static let bubbleStroke = UIColor(white: 0.0, alpha: 0.2) // :580-585
+    static let bubbleStroke = UIColor(white: 0.0, alpha: 0.03) // :580-585 use 0.2; softened for the demo
     static let incomingText = rgb(0x000000)
     static let outgoingText = rgb(0x000000)
     static let incomingTime = rgb(0x525252, 0.6)            // :623

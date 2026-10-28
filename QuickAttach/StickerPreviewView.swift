@@ -9,6 +9,11 @@ final class StickerPreviewView: UIView {
     private var playerLayer: AVPlayerLayer?
     private var playerClipMask: CAShapeLayer?
     private let contentClipMask = CAShapeLayer()
+    private var frameLink: CADisplayLink?
+    private var framePaths: [String] = []
+    private var frameStart: CFTimeInterval = 0
+    private var frameFPS: Double = 60
+    private var currentFrame = -1
 
     init(cornerRadius: CGFloat = 0, frame: CGRect = .zero) {
         super.init(frame: frame)
@@ -73,7 +78,54 @@ final class StickerPreviewView: UIView {
             self.playerClipMask = clipMask
             updatePlayerClipMask()
             player.play()
+        case let .frames(prefix, count, fps):
+            // Frames are decoded one at a time on the display link instead of
+            // being held in memory: 180 decoded 384px frames would be ~100 MB.
+            imageView.isHidden = false
+            framePaths = (0..<count).compactMap {
+                Bundle.main.path(forResource: String(format: "%@_%03d", prefix, $0), ofType: "png")
+            }
+            frameFPS = fps
+            currentFrame = -1
+            showFrame(0)
+            frameStart = CACurrentMediaTime()
+            let link = CADisplayLink(target: DisplayLinkProxy(self), selector: #selector(DisplayLinkProxy.tick))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: Float(fps), preferred: Float(fps))
+            link.isPaused = window == nil
+            link.add(to: .main, forMode: .common)
+            frameLink = link
         }
+    }
+
+    /// When the current frame-sequence loop started, so another view showing
+    /// the same sticker can pick up the animation where this one is.
+    var playbackStart: CFTimeInterval? {
+        framePaths.isEmpty ? nil : frameStart
+    }
+
+    /// Continue the animation from another view's loop instead of frame 0 —
+    /// used when a sticker flies from the quick fan into its chat message.
+    func syncPlayback(to start: CFTimeInterval) {
+        guard !framePaths.isEmpty else { return }
+        frameStart = start
+        advanceFrame()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        frameLink?.isPaused = window == nil
+    }
+
+    fileprivate func advanceFrame() {
+        guard !framePaths.isEmpty else { return }
+        let elapsed = CACurrentMediaTime() - frameStart
+        showFrame(Int(elapsed * frameFPS) % framePaths.count)
+    }
+
+    private func showFrame(_ index: Int) {
+        guard index != currentFrame, framePaths.indices.contains(index) else { return }
+        currentFrame = index
+        imageView.image = UIImage(contentsOfFile: framePaths[index])
     }
 
     override func layoutSubviews() {
@@ -86,6 +138,9 @@ final class StickerPreviewView: UIView {
     deinit { stopVideo() }
 
     private func stopVideo() {
+        frameLink?.invalidate()
+        frameLink = nil
+        framePaths = []
         player?.pause()
         looper?.disableLooping()
         playerLayer?.removeFromSuperlayer()
@@ -112,4 +167,11 @@ final class StickerPreviewView: UIView {
             cornerRadius: layer.cornerRadius
         ).cgPath
     }
+}
+
+/// CADisplayLink retains its target; the proxy keeps that from retaining the view.
+private final class DisplayLinkProxy {
+    weak var view: StickerPreviewView?
+    init(_ view: StickerPreviewView) { self.view = view }
+    @objc func tick() { view?.advanceFrame() }
 }
